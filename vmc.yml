@@ -1,0 +1,30 @@
+# Log configuration
+logging:
+    log: /tmp/vmc.log
+    loglevel: DEBUG
+    #logconfig: /tmp/vmglog.yml
+
+# workspace area configuration
+workspace:
+    # this must be a mount point for a btrfs filesystem
+    rootpath: /export/workspace
+
+# build definitions
+build:
+    # base releases are the default ubuntu releases that will get built
+    # with debootstrap.  They are completely free from any customisation
+    # and just server as a reference point for further work.
+    basereleases:
+        ubuntu:
+            - precise
+            - trusty
+    basetemplates: tpl/base
+    vmdefs: vm
+
+# global parameters for the build
+ubuntu:
+    # The archive to use for packages
+    #archive: http://gb.archive.ubuntu.com/ubuntu/
+    archive: http://localhost:3142/ubuntu/
+    # An (apt) proxy to download packages through, e.g. apt-cacher-ng
+    #proxy: http://localhost:3192/
