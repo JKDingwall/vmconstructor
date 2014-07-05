@@ -145,6 +145,14 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
         pass
 
 
+    @abc.abstractmethod
+    def install(self, *args):
+        """
+        Install the packages given as an argument.
+        """
+        pass
+
+
     def newUUID(self):
         """
         Change the uuid of this vm image
@@ -252,3 +260,8 @@ class ubuntu(_image):
             ["apt-get", "-y", "upgrade"]
         )
         self.setStatus("complete")
+
+
+    def install(self, *args):
+        self._logger.debug("Installing packages: {a}".format(a=args))
+        self.execChroot(*[["apt-get", "install", x] for x in args])
