@@ -92,3 +92,27 @@ class subvolume(object):
 
         cmd = ["btrfs", "subvolume", "delete", self._path]
         self._logger.debug("Deleting subvolume with command: {cmd}".format(cmd=cmd))
+        subprocess.check_call(cmd)
+
+
+    def snapshot(self, name):
+        if os.sep in name:
+            raise Exception("recursive creation not supported")
+
+        destpath = os.path.join(self._parent.path, name)
+
+        if os.path.exists(destpath):
+                raise OSError(errno.EEXIST, destpath)
+
+        cmd = ["btrfs", "subvolume", "snapshot", self._path, destpath]
+        self._logger.debug("Creating snapshot with command: {cmd}".format(cmd=cmd))
+        subprocess.check_call(cmd)
+
+        return(subvolume(os.path.join(self._parent.path, name), self._parent))
+
+
+    def reset(self):
+        # if it can be determined that this volume is a snapshot then
+        # this function should delete/recreate the snapshot not the volume
+        self.delete()
+        self._parent.create(self._path.split(os.sep).pop())
