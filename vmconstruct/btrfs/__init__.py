@@ -24,6 +24,10 @@ class subvolume(object):
         return(other == self.path)
 
 
+    def __str__(self):
+        return("{m}.{n}: {p}".format(m=self.__class__.__module__, n=self.__class__.__name__, p=self._path))
+
+
     @property
     def path(self):
         return(self._path)
