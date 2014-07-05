@@ -7,9 +7,12 @@ import subprocess
 
 
 class subvolume(object):
-    def __init__(self, path):
+    def __init__(self, path, parent=None):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._path = path
+        self._parent = parent
+
+        self._logger.debug("Initialised for path {p}".format(p=path))
 
 
     def __eq__(self, other):
@@ -47,7 +50,7 @@ class subvolume(object):
                 self._logger.debug("Creating subvolume with command: {cmd}".format(cmd=cmd))
                 subprocess.check_output(cmd)
 
-        return(subvolume(os.path.join(self._path, name)))
+        return(subvolume(os.path.join(self._path, name), self))
 
 
     def list(self):
