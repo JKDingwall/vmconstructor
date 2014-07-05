@@ -33,6 +33,14 @@ class subvolume(object):
         return(self._path)
 
 
+    @property
+    def rootpath(self):
+        if self._parent:
+            return(self._parent.rootpath)
+        else:
+            return(self.path)
+
+
     def create(self, name, eexist=False):
         """
         Create a subvolume under this volume
