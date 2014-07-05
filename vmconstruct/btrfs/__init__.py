@@ -67,12 +67,16 @@ class subvolume(object):
 
     def list(self):
         """
-        List existing subvolumes in this subvolume
+        List existing subvolumes in this subvolume (direct descendents)
         """
         subvols = []
-        cmd = ["btrfs", "subvolume", "list", self._path]
+        # this lists the full path of subvolume relative to the root of the filesystem
+        cmd = ["btrfs", "subvolume", "list", "-o", self._path]
+        self._logger.debug("Listing subvolumes with command: {cmd}".format(cmd=cmd))
         for subvol in subprocess.check_output(cmd).decode(encoding="UTF-8").splitlines():
-            subvols.append(subvolume(os.path.join(self._path, subvol.split().pop())))
+            childpath = subvol.split().pop()
+            childname = childpath.split(os.sep).pop()
+            subvols.append(subvolume(os.path.join(self._path, childname)))
 
         return(subvols)
 
