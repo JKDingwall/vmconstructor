@@ -46,8 +46,8 @@ class subvolume(object):
         Create a subvolume under this volume
         """
 
-        # This could include a check for os.sep in name and recursively create subvols
-        # as required.
+        if os.sep in name:
+            raise Exception("recursive creation not supported")
 
         if eexist and os.path.join(self._path, name) in self.list():
             # An existing subvolume of this name and we asked for it to raise an error
