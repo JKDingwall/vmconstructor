@@ -10,6 +10,7 @@
 
 __all__ = []
 
+__all__.append("bootstrap")
 __all__.append("btrfs")
 
 
@@ -75,7 +76,7 @@ def main():
     stderr_log_handler.setFormatter(formatter)
     logger.addHandler(stderr_log_handler)
 
-    
+
     # Do some prep work...
     try:
         # do I have root privileges for chroot etc
@@ -105,6 +106,7 @@ def main():
     # do the builds
     wsroot = btrfs.subvolume(ymlcfg["workspace"]["rootpath"])
     for (dist, rels) in ymlcfg["build"]["basereleases"].items():
+        distvol = wsroot.create(dist)
         if dist in ["ubuntu"]:
             try:
                 archive = ymlcfg[dist]["archive"]
@@ -112,7 +114,11 @@ def main():
                 archive = None
 
             for rel in rels:
-                bootstrap.debootstrap(wsroot.create(dist), rel, archive=archive)
+                relvol = distvol.create(rel)
+                base = bootstrap.debootstrap(relvol.create("_bootstrap"))
+                base.bootstrap(rel, archive=archive)
+                update = base.clone("_update")
+                update.update()
 
     # exit
     logging.shutdown()
