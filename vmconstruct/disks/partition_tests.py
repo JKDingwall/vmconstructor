@@ -14,12 +14,15 @@ def suite():
     partitionTS = unittest.TestSuite()
     partitionTS.addTest(PartitionUT("msdos_empty"))
     partitionTS.addTest(PartitionUT("msdos_1part"))
+    partitionTS.addTest(PartitionUT("msdos_12part"))
+    partitionTS.addTest(PartitionUT("msdos_13part"))
 
     return(partitionTS)
 
 
 class PartitionUT(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         self.logger = logging.getLogger()
         formatter = logging.Formatter('%(asctime)s: [%(levelname)s]%(name)s - %(message)s')
         stderr_log_handler = logging.StreamHandler()
@@ -53,7 +56,35 @@ class PartitionUT(unittest.TestCase):
 
         self.mksparse(testfile, 16)
         pt = msdos()
+        pt.addPartition(1, 8, 0x83, bootable=True)
+        pt.write(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
+    def msdos_12part(self):
+        self.logger.info("Testing the creation of an msdos mbr partition table with partitions 1 and 2")
+
+        testfile = "/tmp/msdos_12part.img"
+
+        self.mksparse(testfile, 32)
+        pt = msdos()
         pt.addPartition(1, 8, 0x83)
+        pt.addPartition(2, 16, 0x83, bootable=True)
+        pt.write(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
+    def msdos_13part(self):
+        self.logger.info("Testing the creation of an msdos mbr partition table with partitions 1 and 3")
+
+        testfile = "/tmp/msdos_13part.img"
+
+        self.mksparse(testfile, 32)
+        pt = msdos()
+        pt.addPartition(1, 8, 0x83, bootable=True)
+        pt.addPartition(3, 12, 0x83, bootable=False)
         pt.write(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
