@@ -7,7 +7,7 @@ import unittest
 from random import choice
 
 if __name__ != "__main__":
-    from .partition import msdos, PartitionTooLarge
+    from .partition import gpt, msdos, PartitionTooLarge
 
 
 def suite():
@@ -18,6 +18,8 @@ def suite():
     partitionTS.addTest(PartitionUT("msdos_13part"))
     partitionTS.addTest(PartitionUT("msdos_toolarge"))
     partitionTS.addTest(PartitionUT("msdos_toooffset"))
+
+    partitionTS.addTest(PartitionUT("gpt_empty"))
 
     return(partitionTS)
 
@@ -97,11 +99,22 @@ class PartitionUT(unittest.TestCase):
         pt.addPartition(2, int(1.5*1024*1024), 0x83)
         self.assertRaises(PartitionTooLarge, pt.addPartition, 3, 64*1024, 0x83)
 
+
+    def gpt_empty(self):
+        pt = gpt()
+
+        self.logger.info("Testing the creation of an empty gpt partition table")
+
+        testfile = "/tmp/gpt_empty.img"
+
+        pt = gpt()
+        pt.makeDisk(testfile)
+
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
 if __name__ == "__main__":
-    from partition import msdos, PartitionTooLarge
+    from partition import gpt, msdos, PartitionTooLarge
 
     runner = unittest.TextTestRunner()
     runner.run(suite())
