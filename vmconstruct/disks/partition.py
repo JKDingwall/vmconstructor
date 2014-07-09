@@ -11,6 +11,14 @@ class InvalidParitionNumber(Exception):
 
 
 
+class PartitionTooLarge(Exception):
+    """
+    Raise if the requested partition size is beyond the capabilities of the
+    partition table type.
+    """
+
+
+
 class _partition(metaclass=abc.ABCMeta):
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
@@ -35,21 +43,41 @@ class _partition(metaclass=abc.ABCMeta):
         pass
 
 
+    @abc.abstractmethod
+    def diskSize(self):
+        """
+        Based on the current partition table propose a disk size that would contain
+        all the partitions.
+        """
+        pass
+
+
+    @abc.abstractmethod
     def write(self, file):
         """
         Write the partition table to the file in the appropriate place.
         """
-        self._logger.debug("Writing partition table to {f}".format(f=file))
-        with open(file, "rb+") as fp:
-            fp.write(self._bytes)
+        pass
+
+
+    def makeDisk(self, file):
+        """
+        Create a suitably sized sparse file and then write the partition table.
+        """
+        with open(file, "ab") as fp:
+            fp.truncate(self.diskSize())
+
+        self.write(file)
 
 
 
 class msdos(_partition):
     # http://en.wikipedia.org/wiki/Master_boot_record
+
     def _init(self):
         # PTE information
         self._partitions = [(None, None)] * 4
+        self._epartitions = []
 
         # Binary representation
         empty = bytearray(b"\0"*512)
@@ -72,12 +100,40 @@ class msdos(_partition):
         if index not in range(1, 5):
             raise InvalidParitionNumber()
 
-        self._logger.debug("Registering partition {i}, size {s}Mb, filesystem {f}, bootable {b}".format(i=index, s=sizemb, f=filesystem, b=bootable))
-        self._partitions[index - 1] = (sizemb, filesystem)
-        if bootable:
-            self._bootable = index - 1
+        try:
+            original_entry = self._partitions[index - 1]
+            original_bootable = self._bootable
 
-        self._buildPartitions()
+            self._partitions[index - 1] = (sizemb, filesystem)
+            if bootable:
+                self._bootable = index - 1
+
+            self._buildPartitions()
+        except PartitionTooLarge:
+            self._partitions[index - 1] = original_entry
+            self._bootable = original_bootable
+            self._buildPartitions()
+            raise
+
+        self._logger.debug("Registered partition {i}, size {s}Mb, filesystem {f}, bootable {b}".format(i=index, s=sizemb, f=filesystem, b=bootable))
+
+
+    def write(self, file):
+        self._logger.debug("Writing msdos partition table to {f}".format(f=file))
+        with open(file, "rb+") as fp:
+            fp.write(self._bytes)
+
+
+    def diskSize(self):
+        """
+        Iterate over the partition table and calculate the disk size.
+        """
+        # The 0-2047s = 1Mb
+        size = 1
+        for (sizemb, filesystem) in self._partitions:
+            size += sizemb if sizemb else 0
+
+        return(size*1048576)
 
 
     def _buildPartitions(self):
@@ -114,6 +170,8 @@ class msdos(_partition):
                 self._bytes[offset + 0x06] = self._bytes[offset + 0x02]
                 self._bytes[offset + 0x07] = self._bytes[offset + 0x03]
 
+                if next_start > (2**32 - 1):
+                    raise PartitionTooLarge("The start sector is greater than 2^32-1")
                 self._bytes[offset + 0x08] = (next_start & 0xff)
                 self._bytes[offset + 0x09] = (next_start >> 8) & 0xff
                 self._bytes[offset + 0x0a] = (next_start >> 16) & 0xff
@@ -122,6 +180,8 @@ class msdos(_partition):
                 # We'll work in 512 byte sectors but make sure we align to 4k byte
                 # (1048576 / 4096) * 8 = number of sectors
                 sector_count = (sizemb * 2048)
+                if sector_count > (2**32 - 1):
+                    raise PartitionTooLarge("The partition size is more than 2^32-1 sectors")
 
                 self._bytes[offset + 0x0c] = sector_count & 0xff
                 self._bytes[offset + 0x0d] = (sector_count >> 8) & 0xff

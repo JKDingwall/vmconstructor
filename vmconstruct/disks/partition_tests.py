@@ -7,7 +7,7 @@ import unittest
 from random import choice
 
 if __name__ != "__main__":
-    from .partition import msdos
+    from .partition import msdos, PartitionTooLarge
 
 
 def suite():
@@ -16,6 +16,8 @@ def suite():
     partitionTS.addTest(PartitionUT("msdos_1part"))
     partitionTS.addTest(PartitionUT("msdos_12part"))
     partitionTS.addTest(PartitionUT("msdos_13part"))
+    partitionTS.addTest(PartitionUT("msdos_toolarge"))
+    partitionTS.addTest(PartitionUT("msdos_toooffset"))
 
     return(partitionTS)
 
@@ -31,20 +33,13 @@ class PartitionUT(unittest.TestCase):
         self.logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
-    def mksparse(self, file, sizemb):
-        sparse = open(file, "ab")
-        sparse.truncate(sizemb*1048576)
-        sparse.close()
-
-
     def msdos_empty(self):
         self.logger.info("Testing the creation of an empty msdos mbr partition table")
 
         testfile = "/tmp/msdos_empty.img"
 
-        self.mksparse(testfile, 16)
         pt = msdos()
-        pt.write(testfile)
+        pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
@@ -54,10 +49,9 @@ class PartitionUT(unittest.TestCase):
 
         testfile = "/tmp/msdos_1part.img"
 
-        self.mksparse(testfile, 16)
         pt = msdos()
         pt.addPartition(1, 8, 0x83, bootable=True)
-        pt.write(testfile)
+        pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
@@ -67,11 +61,10 @@ class PartitionUT(unittest.TestCase):
 
         testfile = "/tmp/msdos_12part.img"
 
-        self.mksparse(testfile, 32)
         pt = msdos()
         pt.addPartition(1, 8, 0x83)
         pt.addPartition(2, 16, 0x83, bootable=True)
-        pt.write(testfile)
+        pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
@@ -81,17 +74,34 @@ class PartitionUT(unittest.TestCase):
 
         testfile = "/tmp/msdos_13part.img"
 
-        self.mksparse(testfile, 32)
         pt = msdos()
         pt.addPartition(1, 8, 0x83, bootable=True)
         pt.addPartition(3, 12, 0x83, bootable=False)
-        pt.write(testfile)
+        pt.makeDisk(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
+    def msdos_toolarge(self):
+        self.logger.info("Trying to make a 3Tb partition")
+
+        pt = msdos()
+        self.assertRaises(PartitionTooLarge, pt.addPartition, 1, 3*1024*1024, 0x83)
+
+
+    def msdos_toooffset(self):
+        self.logger.info("Trying to make a partition starting beyond 2Tb")
+
+        pt = msdos()
+        pt.addPartition(1, 1*1024*1024, 0x83)
+        pt.addPartition(2, int(1.5*1024*1024), 0x83)
+        self.assertRaises(PartitionTooLarge, pt.addPartition, 3, 64*1024, 0x83)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
 if __name__ == "__main__":
-    from partition import msdos
+    from partition import msdos, PartitionTooLarge
 
     runner = unittest.TextTestRunner()
     runner.run(suite())
