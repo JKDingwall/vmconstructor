@@ -284,27 +284,26 @@ class gpt(_partition):
 
         # generate pte bytes
         start_sector = 2048 # assuming 512 byte sectors, need to adjust for 4096
-#        for pte in range(GPT_PTE_ENTS):
-#            (sizemb, filesystem, name) = self._partitions[pte]
-#            offset = pte * GPT_PTE_SIZE
-#            if sizemb:
-#                # partition type guid
-#                self._ptes[offset:offset+16] = uuid.UUID('{0FC63DAF-8483-4772-8E79-3D69D8477DE4}').bytes_le
-#                # unique partition uid
-#                self._ptes[offset+0x10:offset+0x10+16] = uuid.uuid4().bytes_le
-#                # start lba address (LE)
-#                self._ptes[offset+0x20:offset+0x20+8] = self._lebytes(start_sector, 8)
-#                # end lba address (inclusive) (LE)
-#                pte_sectors = (sizemb * 1048576) // GPT_SECTOR_SIZE
-#                print("last partition sector at {s}".format(s=(start_sector + pte_sectors - 1)))
-#                self._ptes[offset+0x28:offset+0x28+8] = self._lebytes(start_sector + pte_sectors - 1, 8)
-#                # attribute flags
-#                # partition name
-#                self._ptes[offset+0x38:offset+0x38+72] = name.encode("UTF-16-LE")[:72]
+        for pte in range(GPT_PTE_ENTS):
+            (sizemb, filesystem, name) = self._partitions[pte]
+            offset = pte * GPT_PTE_SIZE
+            if sizemb:
+                # partition type guid
+                self._ptes[offset:offset+16] = uuid.UUID('{0FC63DAF-8483-4772-8E79-3D69D8477DE4}').bytes_le
+                # unique partition uid
+                self._ptes[offset+0x10:offset+0x10+16] = uuid.uuid4().bytes_le
+                # start lba address (LE)
+                self._ptes[offset+0x20:offset+0x20+8] = self._lebytes(start_sector, 8)
+                # end lba address (inclusive) (LE)
+                pte_sectors = (sizemb * 1048576) // GPT_SECTOR_SIZE
+                self._ptes[offset+0x28:offset+0x28+8] = self._lebytes(start_sector + pte_sectors - 1, 8)
+                # attribute flags
+                # partition name
+                nmenc = name.encode("UTF-16-LE") + b'\0'*72
+                self._ptes[offset+0x38:offset+0x38+72] = nmenc[:72]
 
         # generate pte crc32 and copy into header
-        pte_crc = crc32(self._ptes)
-        self._ptpri[0x58:0x58+4] = self._lebytes(pte_crc, 4)
+        self._ptpri[0x58:0x58+4] = self._lebytes(crc32(self._ptes), 4)
 
         # Copy the primary header to the secondary
         self._ptsec = self._ptpri[:]

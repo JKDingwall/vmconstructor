@@ -20,6 +20,7 @@ def suite():
     partitionTS.addTest(PartitionUT("msdos_toooffset"))
 
     partitionTS.addTest(PartitionUT("gpt_empty"))
+    partitionTS.addTest(PartitionUT("gpt_1part"))
 
     return(partitionTS)
 
@@ -103,11 +104,25 @@ class PartitionUT(unittest.TestCase):
     def gpt_empty(self):
         pt = gpt()
 
-        self.logger.info("Testing the creation of an empty gpt partition table")
+        self.logger.info("Testing the creation of an empty guid partition table")
 
         testfile = "/tmp/gpt_empty.img"
 
         pt = gpt()
+        pt.makeDisk(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
+    def gpt_1part(self):
+        pt = gpt()
+
+        self.logger.info("Testing the creation of a guid partition table with 1 partition")
+
+        testfile = "/tmp/gpt_1part.img"
+
+        pt = gpt()
+        pt.addPartition(1, 512, "linux", "a test name")
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
