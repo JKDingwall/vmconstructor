@@ -1,5 +1,6 @@
 import abc
 import logging
+import uuid
 from binascii import crc32
 from random import choice
 from sparse_list import SparseList
@@ -17,6 +18,9 @@ TODO:
 
 correctly generate chs values in mbr for small disks
 gpt update first usable / last usable sector in header
+map well known mbr types to a table
+map will known gpt type uuid to a table
+generate a random uuid for gpt header
 """
 
 class InvalidParitionNumber(Exception):
@@ -96,7 +100,7 @@ class msdos(_partition):
         self._epartitions = []
 
         # Binary representation
-        self._pt = bytearray(b"\0"*512)
+        self._pt = bytearray(b"\0"*512)		# The mbr is 512 bytes regardless of sector size
         # disk signature
         self._pt[440] = choice(range(0, 256))
         self._pt[441] = choice(range(0, 256))
@@ -214,35 +218,30 @@ class gpt(_partition):
     # http://en.wikipedia.org/wiki/GUID_Partition_Table
 
     def _init(self):
-        self._partitions = SparseList(0, (None, None))
-        self._ptes = bytearray(b'\0'*(128*128))
+        self._partitions = SparseList(0, (None, None, None))
+        self._ptes = bytearray(b'\0'*(GPT_PTE_SIZE * GPT_PTE_ENTS))
 
         # Binary representation
-        self._ptpri = bytearray(b"\0"*MBR_SECTOR_SIZE)
+        self._ptpri = bytearray(b"\0"*GPT_SECTOR_SIZE)
         # "EFI PART" signature
         self._ptpri[0x00] = 0x45 ; self._ptpri[0x01] = 0x46 ; self._ptpri[0x02] = 0x49 ; self._ptpri[0x03] = 0x20
         self._ptpri[0x04] = 0x50 ; self._ptpri[0x05] = 0x41 ; self._ptpri[0x06] = 0x52 ; self._ptpri[0x07] = 0x54
         # Revision
         self._ptpri[0x08] = 0x00 ; self._ptpri[0x09] = 0x00 ; self._ptpri[0x0a] = 0x01 ; self._ptpri[0x0b] = 0x00
         # Header size (LE)
-        self._ptpri[0x0c] = 0x5c ; self._ptpri[0x0d] = 0x00 ; self._ptpri[0x0e] = 0x00 ; self._ptpri[0x0f] = 0x00
+        self._ptpri[0x0c:0x0c+4] = self._lebytes(0x5c, 4)
         # LBA of this copy (1) (address of other copy generated later) (LE)
-        self._ptpri[0x18] = 0x01 ; self._ptpri[0x19] = 0x00 ; self._ptpri[0x1a] = 0x00 ; self._ptpri[0x1b] = 0x00
-        self._ptpri[0x1c] = 0x00 ; self._ptpri[0x1d] = 0x00 ; self._ptpri[0x1e] = 0x00 ; self._ptpri[0x1f] = 0x00
-        # First usable LBA (2048) (LE)
-        self._ptpri[0x28] = 0x00 ; self._ptpri[0x29] = 0x08 ; self._ptpri[0x2a] = 0x00 ; self._ptpri[0x2b] = 0x00
-        self._ptpri[0x2c] = 0x00 ; self._ptpri[0x2d] = 0x00 ; self._ptpri[0x2e] = 0x00 ; self._ptpri[0x2f] = 0x00
+        self._ptpri[0x18:0x18+8] = self._lebytes(1, 8)
+        # First usable LBA for partitions (LE)
+        self._ptpri[0x28:0x28+8] = self._lebytes(2+self._pteSectors(), 8)
         # Disk GUID
-        self._ptpri[0x38] = 0xde ; self._ptpri[0x39] = 0xad ; self._ptpri[0x3a] = 0xbe ; self._ptpri[0x3b] = 0xef
-        self._ptpri[0x3c] = 0xde ; self._ptpri[0x3d] = 0xad ; self._ptpri[0x3e] = 0xbe ; self._ptpri[0x3f] = 0xef
-        self._ptpri[0x40] = 0xde ; self._ptpri[0x41] = 0xad ; self._ptpri[0x42] = 0xbe ; self._ptpri[0x43] = 0xef
-        self._ptpri[0x44] = 0xde ; self._ptpri[0x45] = 0xad ; self._ptpri[0x46] = 0xbe ; self._ptpri[0x47] = 0xef
+        self._ptpri[0x38:0x38+16] = uuid.UUID('deadbeefdeadbeefdeadbeefdeadbeef').bytes_le
         # Starting LBA of PTE list (2 for primary copy) (LE)
-        self._ptpri[0x48] = 0x02 ; self._ptpri[0x49] = 0x00 ; self._ptpri[0x4a] = 0x00 ; self._ptpri[0x4b] = 0x00
+        self._ptpri[0x48:0x48+8] = self._lebytes(2, 8)
         # Number of PTE entries in array (128) (LE) (not number of defined partitions)
-        self._ptpri[0x50] = 0x80 ; self._ptpri[0x55] = 0x00 ; self._ptpri[0x56] = 0x00 ; self._ptpri[0x57] = 0x00
+        self._ptpri[0x50:0x50+4] = self._lebytes(GPT_PTE_ENTS, 4)
         # Size of PTE (128) (LE)
-        self._ptpri[0x54] = 0x80 ; self._ptpri[0x55] = 0x00 ; self._ptpri[0x56] = 0x00 ; self._ptpri[0x57] = 0x00
+        self._ptpri[0x54:0x54+4] = self._lebytes(GPT_PTE_SIZE, 4)
 
         self._updatePts()
 
@@ -259,29 +258,53 @@ class gpt(_partition):
         return(-(-pte_bytes // GPT_SECTOR_SIZE))
 
 
+    def _lebytes(self, val, len=4):
+        """
+        Calculate the given value as a little endian ordered byte array of the requested size
+        """
+        bytes = []
+        for byte in range(len):
+            bytes.append((val >> (byte * 8)) & 0xff)
+
+        return(bytes)
+
+
     def _updatePts(self):
         """
         Recalculate secondary header location in primary then make a copy of the primary gpt header
         and update necessary fields.
         """
 
-        # Update LBA of other copy in primary header (LE) (the final sector should contain the backup header)
-        secondaryLBAAddress = (self.diskSize() // MBR_SECTOR_SIZE) - 1
-        for byte in range(8):
-            self._ptpri[0x20+byte] = (secondaryLBAAddress >> (byte * 8)) & 0xff
+        # Update LBA of other header copy in primary header (LE) (the final sector should contain the backup header)
+        secondaryLBAAddress = (self.diskSize() // GPT_SECTOR_SIZE) - 1
+        self._ptpri[0x20:0x20+8] = self._lebytes(secondaryLBAAddress, 8)
 
         # Blank CRC bytes ready to recalculate them
-        for byte in range(4):
-            self._ptpri[0x10+byte] = 0
+        self._ptpri[0x10:0x10+4] = self._lebytes(0, 4)
 
         # generate pte bytes
-        for pte in range(128):
-            pass
+        start_sector = 2048 # assuming 512 byte sectors, need to adjust for 4096
+#        for pte in range(GPT_PTE_ENTS):
+#            (sizemb, filesystem, name) = self._partitions[pte]
+#            offset = pte * GPT_PTE_SIZE
+#            if sizemb:
+#                # partition type guid
+#                self._ptes[offset:offset+16] = uuid.UUID('{0FC63DAF-8483-4772-8E79-3D69D8477DE4}').bytes_le
+#                # unique partition uid
+#                self._ptes[offset+0x10:offset+0x10+16] = uuid.uuid4().bytes_le
+#                # start lba address (LE)
+#                self._ptes[offset+0x20:offset+0x20+8] = self._lebytes(start_sector, 8)
+#                # end lba address (inclusive) (LE)
+#                pte_sectors = (sizemb * 1048576) // GPT_SECTOR_SIZE
+#                print("last partition sector at {s}".format(s=(start_sector + pte_sectors - 1)))
+#                self._ptes[offset+0x28:offset+0x28+8] = self._lebytes(start_sector + pte_sectors - 1, 8)
+#                # attribute flags
+#                # partition name
+#                self._ptes[offset+0x38:offset+0x38+72] = name.encode("UTF-16-LE")[:72]
 
         # generate pte crc32 and copy into header
-        pte_crt = crc32(self._ptes)
-        for byte in range(4):
-            self._ptpri[0x58+byte] = (pte_crt >> (byte * 8)) & 0xff
+        pte_crc = crc32(self._ptes)
+        self._ptpri[0x58:0x58+4] = self._lebytes(pte_crc, 4)
 
         # Copy the primary header to the secondary
         self._ptsec = self._ptpri[:]
@@ -294,21 +317,23 @@ class gpt(_partition):
         disk_sectors = self.diskSize()  // GPT_SECTOR_SIZE
         pte_sectors = self._pteSectors()
         pte_sec_lba = disk_sectors - (pte_sectors + 1)
-        for byte in range(8):
-            self._ptsec[0x48+byte] = (pte_sec_lba >> (byte * 8)) & 0xff
+        self._ptsec[0x48:0x48+8] = self._lebytes(pte_sec_lba, 8)
+
+        # insert last usable lba address
+        self._ptpri[0x30:0x30+8] = self._lebytes(pte_sec_lba-1, 8)
+        self._ptsec[0x30:0x30+8] = self._lebytes(pte_sec_lba-1, 8)
 
         # calculate crcs and sub in
         pri_crc = crc32(self._ptpri[:0x5c])
         sec_crc = crc32(self._ptsec[:0x5c])
-        print(hex(pri_crc))
-        print(hex(sec_crc))
         for byte in range(4):
             self._ptpri[0x10+byte] = (pri_crc >> (byte * 8)) & 0xff
             self._ptsec[0x10+byte] = (sec_crc >> (byte * 8)) & 0xff
 
 
-    def addPartition(self, index, sizemb, filesystem, bootable=False):
-        raise Exception("not implemented")
+    def addPartition(self, index, sizemb, filesystem, name, bootable=False):
+        self._partitions[index-1] = (sizemb, filesystem, name)
+        self._updatePts()
 
 
     def write(self, file):
@@ -348,7 +373,7 @@ class gpt(_partition):
     def diskSize(self):
         # The 0-2047s = 1Mb, gpt copy at end of disk = 1Mb
         size = 2
-        for (sizemb, filesystem) in self._partitions:
+        for (sizemb, filesystem, name) in self._partitions:
             size += sizemb if sizemb else 0
 
         if size < 16:
