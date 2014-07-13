@@ -7,17 +7,16 @@ from sparse_list import SparseList
 
 # There really should be no need to change these unless trying to generate something unusual.  Not well
 # tested with non default values!
-MBR_SECTOR_SIZE = 512	# size for calculation when generating a mbr partition table
-GPT_SECTOR_SIZE = 512	# size for calculation when generating a guid partition table
-GPT_PTE_SIZE = 128	# size of a gpt partition entry (128 is usual)
-GPT_PTE_ENTS = 128	# number of entries in the gpt pte array (128 is usual)
-
+MBR_SECTOR_SIZE = 512		# size for calculation when generating a mbr partition table
+GPT_SECTOR_SIZE = 512		# size for calculation when generating a guid partition table
+GPT_PTE_SIZE = 128		# size of a gpt partition entry (128 is usual)
+GPT_PTE_ENTS = 128		# number of entries in the gpt pte array (128 is usual)
 
 """
 TODO:
 
-fix initial errors with crc for gpt
-zero out disk identifier in mbr for gpt
+correctly generate chs values in mbr for small disks
+gpt update first usable / last usable sector in header
 """
 
 class InvalidParitionNumber(Exception):
@@ -175,15 +174,15 @@ class msdos(_partition):
                     self._pt[offset + zero] = 0
             else:
                 if index == self._bootable:
-                    self._pt[offset + 0x00] = 0x80		# partition type (0x80 = bootable)
+                    self._pt[offset + 0x00] = 0x80			# partition type (0x80 = bootable)
                 else:
                     self._pt[offset + 0x00] = 0x00
 
-                self._pt[offset + 0x01] = 254		# chs start address (indicate lba)
+                self._pt[offset + 0x01] = 254				# chs start address (indicate lba)
                 self._pt[offset + 0x02] = 255
                 self._pt[offset + 0x03] = 255
 
-                self._pt[offset + 0x04] = filesystem		# fs type
+                self._pt[offset + 0x04] = filesystem			# fs type
 
                 self._pt[offset + 0x05] = self._pt[offset + 0x01]	# chs end address
                 self._pt[offset + 0x06] = self._pt[offset + 0x02]
@@ -240,10 +239,24 @@ class gpt(_partition):
         self._ptpri[0x44] = 0xde ; self._ptpri[0x45] = 0xad ; self._ptpri[0x46] = 0xbe ; self._ptpri[0x47] = 0xef
         # Starting LBA of PTE list (2 for primary copy) (LE)
         self._ptpri[0x48] = 0x02 ; self._ptpri[0x49] = 0x00 ; self._ptpri[0x4a] = 0x00 ; self._ptpri[0x4b] = 0x00
+        # Number of PTE entries in array (128) (LE) (not number of defined partitions)
+        self._ptpri[0x50] = 0x80 ; self._ptpri[0x55] = 0x00 ; self._ptpri[0x56] = 0x00 ; self._ptpri[0x57] = 0x00
         # Size of PTE (128) (LE)
         self._ptpri[0x54] = 0x80 ; self._ptpri[0x55] = 0x00 ; self._ptpri[0x56] = 0x00 ; self._ptpri[0x57] = 0x00
 
         self._updatePts()
+
+
+    def _pteSectors(self):
+        """
+        Calculate the number of sectors required to hold the pte array.
+        """
+        GPT_PTE_RESERVATION = 16384	# 16384 is the minimum value, GPT_PTE_SIZE * GPT_PTE_ENTS default values
+        pte_bytes = max(GPT_PTE_RESERVATION, (GPT_PTE_SIZE * GPT_PTE_ENTS))
+
+        self._logger.debug("The partition table requires {x} {size} byte sectors".format(x=(-(-pte_bytes // GPT_SECTOR_SIZE)), size=GPT_SECTOR_SIZE))
+
+        return(-(-pte_bytes // GPT_SECTOR_SIZE))
 
 
     def _updatePts(self):
@@ -277,14 +290,21 @@ class gpt(_partition):
         for byte in range(8):
             self._ptsec[0x18+byte], self._ptsec[0x20+byte] = self._ptsec[0x20+byte], self._ptsec[0x18+byte]
 
+        # in the copy set the location of the secondary pte array
+        disk_sectors = self.diskSize()  // GPT_SECTOR_SIZE
+        pte_sectors = self._pteSectors()
+        pte_sec_lba = disk_sectors - (pte_sectors + 1)
+        for byte in range(8):
+            self._ptsec[0x48+byte] = (pte_sec_lba >> (byte * 8)) & 0xff
+
         # calculate crcs and sub in
         pri_crc = crc32(self._ptpri[:0x5c])
         sec_crc = crc32(self._ptsec[:0x5c])
         print(hex(pri_crc))
         print(hex(sec_crc))
-#        for byte in range(4):
-#            self._ptpri[0x10+byte] = (pri_crc >> (byte * 8)) & 0xff
-#            self._ptsec[0x10+byte] = (sec_crc >> (byte * 8)) & 0xff
+        for byte in range(4):
+            self._ptpri[0x10+byte] = (pri_crc >> (byte * 8)) & 0xff
+            self._ptsec[0x10+byte] = (sec_crc >> (byte * 8)) & 0xff
 
 
     def addPartition(self, index, sizemb, filesystem, bootable=False):
@@ -302,17 +322,27 @@ class gpt(_partition):
         except PartitionTooLarge:
             # maximum size that can be represented by (2**32 - 1) sectors: ((2**32 - 1) * 512) / 1024
             protective_mbr.addPartition(1, 2147483647, 0xee)
+        # Zero the mbr disk signature
+        protective_mbr._pt[440:440+4] = [0]*4
         # Tickle the chs h value to 255 for parition 1
         protective_mbr._pt[446 + 0x01] = 255
 
         # Write the data
+        # Write the protective mbr at LBA 0 (start of the disk)
         protective_mbr.write(file)
 
         with open(file, "rb+") as fp:
-            fp.seek(len(protective_mbr._pt))
+            # write the primary header after the protective mbr at LBA 1
+            fp.seek(GPT_SECTOR_SIZE)
             fp.write(self._ptpri)
-            fp.seek(self.diskSize()-MBR_SECTOR_SIZE)
+            # write the primary copy of the pte array at LBA 2
+            fp.write(self._ptes)
+            # write the secondary header at LBA -1
+            fp.seek(self.diskSize() - GPT_SECTOR_SIZE)
             fp.write(self._ptsec)
+            # write the secondary copy of the pte array at LBA -n
+            fp.seek(self.diskSize() - ((self._pteSectors() + 1) * GPT_SECTOR_SIZE))
+            fp.write(self._ptes)
 
 
     def diskSize(self):
@@ -321,4 +351,11 @@ class gpt(_partition):
         for (sizemb, filesystem) in self._partitions:
             size += sizemb if sizemb else 0
 
-        return(size*1048576)
+        if size < 16:
+            diskBytes = 16 * 1048576
+        else:
+            diskBytes = size * 1048576
+
+        self._logger.debug("Disk size is {b} bytes ({s} {size} byte sectors)".format(b=diskBytes, s=(diskBytes // GPT_SECTOR_SIZE), size=GPT_SECTOR_SIZE))
+
+        return(diskBytes)
