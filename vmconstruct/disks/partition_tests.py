@@ -7,7 +7,7 @@ import unittest
 from random import choice
 
 if __name__ != "__main__":
-    from .partition import gpt, msdos, PartitionTooLarge
+    from .partition import gpt, msdos, PartitionTooLarge, InvalidPartitionNumber
 
 
 def suite():
@@ -21,6 +21,8 @@ def suite():
 
     partitionTS.addTest(PartitionUT("gpt_empty"))
     partitionTS.addTest(PartitionUT("gpt_1part"))
+    partitionTS.addTest(PartitionUT("gpt_nparts"))
+    partitionTS.addTest(PartitionUT("gpt_badpart"))
 
     return(partitionTS)
 
@@ -128,8 +130,37 @@ class PartitionUT(unittest.TestCase):
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
+    def gpt_nparts(self):
+        pt = gpt()
+
+        self.logger.info("Testing the creation of a guid partition table with some partitions")
+
+        testfile = "/tmp/gpt_nparts.img"
+
+        pt = gpt()
+        for x in range(choice(range(1, 129))):
+            pt.addPartition(x, 16, "linux", "a test name")
+        pt.makeDisk(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
+    def gpt_badpart(self):
+        pt = gpt()
+
+        self.logger.info("Testing the creation of a guid partition table with 1 partition")
+
+        testfile = "/tmp/gpt_1part.img"
+
+        pt = gpt()
+        self.assertRaises(InvalidPartitionNumber, pt.addPartition, 129, 512, "linux", "a test name")
+        pt.makeDisk(testfile)
+
+        self.logger.info("Review the result with another paritioning tool to confirm the result")
+
+
 if __name__ == "__main__":
-    from partition import gpt, msdos, PartitionTooLarge
+    from partition import gpt, msdos, PartitionTooLarge, InvalidPartitionNumber
 
     runner = unittest.TextTestRunner()
     runner.run(suite())

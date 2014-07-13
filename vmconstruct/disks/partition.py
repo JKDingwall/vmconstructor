@@ -23,7 +23,7 @@ map will known gpt type uuid to a table
 generate a random uuid for gpt header
 """
 
-class InvalidParitionNumber(Exception):
+class InvalidPartitionNumber(Exception):
     """
     Raise if the requested partition index is out of range.
     """
@@ -116,7 +116,7 @@ class msdos(_partition):
         Register a partition entry for the partition table
         """
         if index not in range(1, 5):
-            raise InvalidParitionNumber()
+            raise InvalidPartitionNumber()
 
         try:
             original_entry = self._partitions[index - 1]
@@ -302,6 +302,9 @@ class gpt(_partition):
                 nmenc = name.encode("UTF-16-LE") + b'\0'*72
                 self._ptes[offset+0x38:offset+0x38+72] = nmenc[:72]
 
+                # work out next starting point
+                start_sector += pte_sectors
+
         # generate pte crc32 and copy into header
         self._ptpri[0x58:0x58+4] = self._lebytes(crc32(self._ptes), 4)
 
@@ -331,6 +334,9 @@ class gpt(_partition):
 
 
     def addPartition(self, index, sizemb, filesystem, name, bootable=False):
+        if index >= GPT_PTE_ENTS:
+            raise InvalidPartitionNumber("Only configured to support {n} partitions".format(n=GPT_PTE_ENTS))
+
         self._partitions[index-1] = (sizemb, filesystem, name)
         self._updatePts()
 
@@ -348,7 +354,7 @@ class gpt(_partition):
             protective_mbr.addPartition(1, 2147483647, 0xee)
         # Zero the mbr disk signature
         protective_mbr._pt[440:440+4] = [0]*4
-        # Tickle the chs h value to 255 for parition 1
+        # Tickle the chs h value to 255 for partition 1
         protective_mbr._pt[446 + 0x01] = 255
 
         # Write the data
