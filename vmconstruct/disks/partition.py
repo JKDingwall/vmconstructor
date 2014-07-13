@@ -235,7 +235,7 @@ class gpt(_partition):
         # First usable LBA for partitions (LE)
         self._ptpri[0x28:0x28+8] = self._lebytes(2+self._pteSectors(), 8)
         # Disk GUID
-        self._ptpri[0x38:0x38+16] = uuid.UUID('deadbeefdeadbeefdeadbeefdeadbeef').bytes_le
+        self._ptpri[0x38:0x38+16] = uuid.uuid4().bytes_le
         # Starting LBA of PTE list (2 for primary copy) (LE)
         self._ptpri[0x48:0x48+8] = self._lebytes(2, 8)
         # Number of PTE entries in array (128) (LE) (not number of defined partitions)
