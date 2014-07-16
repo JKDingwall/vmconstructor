@@ -9,6 +9,7 @@ from sparse_list import SparseList
 # There really should be no need to change these unless trying to generate something unusual.  Not well
 # tested with non default values!
 MBR_SECTOR_SIZE = 512		# size for calculation when generating a mbr partition table
+
 GPT_SECTOR_SIZE = 512		# size for calculation when generating a guid partition table
 GPT_PTE_SIZE = 128		# size of a gpt partition entry (128 is usual)
 GPT_PTE_ENTS = 128		# number of entries in the gpt pte array (128 is usual)
@@ -22,6 +23,192 @@ map well known mbr types to a table
 map will known gpt type uuid to a table
 generate a random uuid for gpt header
 """
+
+
+_partitionTypes = []
+
+class partitionType(object):
+    def __init__(self, gptCode, uuidStr, os, code, type):
+        self._code = code
+        self._uuid = uuid.UUID("{{{uuid}}}".format(uuid=uuidStr))
+        self._gptCode = gptCode
+        self._mbrCode = (gptCode >> 8) if not ((gptCode | 0xff00) ^ 0xff00) else -1
+        self._type = type
+
+        _partitionTypes.append(self)
+
+
+
+# Well know guid partition table pte guids (http://en.wikipedia.org/wiki/GUID_Partition_Table)
+# http://sourceforge.net/p/gptfdisk/code/ci/master/tree/parttypes.cc#l70
+# Comments in the partitionType registrations are copied verbatim from gptfdisk code
+
+# Start with the "unused entry," which should normally appear only
+# on empty partition table entries....
+partitionType(0x0000, "00000000-0000-0000-0000-000000000000", None,          "null",                "Unused entry")
+
+# DOS/Windows partition types, most of which are hidden from the "L" listing
+# (they're available mainly for MBR-to-GPT conversions).
+partitionType(0x0100, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-12",      "Microsoft basic data (FAT-12)")
+partitionType(0x0400, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-16lt32",  "Microsoft basic data (FAT-16 < 32M)")
+partitionType(0x0600, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-16",      "Microsoft basic data (FAT-16)")
+partitionType(0x0700, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/ntfs",        "Microsoft basic data (NTFS (or HPFS))")
+partitionType(0x0b00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-32",      "Microsoft basic data (FAT-32)")
+partitionType(0x0c00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-32-lba",  "Microsoft basic data (FAT-32 LBA)")
+partitionType(0x0c01, "E3C9E316-0B5C-4DB8-817D-F92DF00215AE", "Windows",     "windows/reserved",    "Microsoft reserved")
+partitionType(0x0e00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/fat-16-lba",  "Microsoft basic data (FAT-16 LBA)")
+partitionType(0x1100, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-12",     "Microsoft basic data (Hidden FAT-12)")
+partitionType(0x1400, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-16lt32", "Microsoft basic data (Hidden FAT-16 < 32M)")
+partitionType(0x1600, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-16",     "Microsoft basic data (Hidden FAT-16)")
+partitionType(0x1700, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hntfs",       "Microsoft basic data (Hidden NTFS (or HPFS))")
+partitionType(0x1b00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-32",     "Microsoft basic data (Hidden FAT-32)")
+partitionType(0x1c00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-32-lba", "Microsoft basic data (Hidden FAT-32 LBA)")
+partitionType(0x1e00, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7", "Windows",     "windows/hfat-16-lba", "Microsoft basic data (Hidden FAT-16 LBA)")
+partitionType(0x2700, "DE94BBA4-06D1-4D40-A16A-BFD50179D6AC", "Windows",     "windows/re",          "Windows RE")
+
+# Open Network Install Environment (ONIE) specific types.
+# See http://www.onie.org/ and
+# https://github.com/onie/onie/blob/master/rootconf/x86_64/sysroot-lib-onie/onie-blkdev-common
+partitionType(0x3000, "7412F7D5-A156-4B13-81DC-867174929325", "ONIE",        "onie/boot",           "ONIE boot")
+partitionType(0x3001, "D4E6E2CD-4469-46F3-B5CB-1BFF57AFC149", "ONIE",        "onie/config",         "ONIE config")
+
+# PowerPC reference platform boot partition
+partitionType(0x4100, "9E1A2D38-C612-4316-AA26-8B49521E5A8B", "PowerPC",     "powerpc/boot",        "PowerPC PReP boot")
+
+# Windows LDM ("dynamic disk") types
+partitionType(0x4200, "AF9B60A0-1431-4F62-BC68-3311714A69AD", "Windows",     "windows/ldm",         "Windows LDM data")
+partitionType(0x4201, "5808C8AA-7E8F-42E0-85D2-E1E90434CFB3", "Windows",     "windows/ldmmeta",     "Windows LDM metadata")
+
+# An oddball IBM filesystem....
+partitionType(0x7501, "37AFFC90-EF7D-4E96-91C3-2D7AE055B174", "Windows",     "windows/gpfs",        "IBM GPFS")
+
+# ChromeOS-specific partition types...
+# Values taken from vboot_reference/firmware/lib/cgptlib/include/gpt.h in
+# ChromeOS source code, retrieved 12/23/2010. They're also at
+# http://www.chromium.org/chromium-os/chromiumos-design-docs/disk-format.
+# These have no MBR equivalents, AFAIK, so I'm using 0x7Fxx values, since they're close
+# to the Linux values.
+partitionType(0x7f00, "FE3A2A5D-4F32-41A7-B725-ACCC3285A309", "ChromeOS",    "chromeos/kernel",     "ChromeOS kernel")
+partitionType(0x7f01, "3CB8E202-3B7E-47DD-8A3C-7FF2A13CFCEC", "ChromeOS",    "chromeos/root",       "ChromeOS root")
+partitionType(0x7f02, "2E0A753D-9E48-43B0-8337-B15192CB1B5E", "ChromeOS",    "chromeos/reserved",   "ChromeOS reserved")
+
+# Linux-specific partition types....
+partitionType(0x8200, "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F", "Linux",       "linux/swap",          "Linux swap (or Solaris on MBR)")
+partitionType(0x8300, "0FC63DAF-8483-4772-8E79-3D69D8477DE4", "Linux",       "linux/filesystem",    "Linux filesystem")
+partitionType(0x8301, "8DA63339-0007-60C0-C436-083AC8230908", "Linux",       "linux/reserved",      "Linux reserved")
+
+# See http://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html
+# and http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/
+partitionType(0x8302, "933AC7E1-2EB4-4F13-B844-0E14E2AEF915", "Linux",       "linux//home",         "Linux /home")
+partitionType(0x8303, "933AC7E1-2EB4-4F13-B844-0E14E2AEF915", "Linux",       "linux/x86/",          "Linux x86 root (/)")
+partitionType(0x8304, "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709", "Linux",       "linux/amd64/",        "Linux x86-64 root (/)")
+partitionType(0x8305, "B921B045-1DF0-41C3-AF44-4C6F280D3FAE", "Linux",       "linux/arm64/",        "Linux ARM64 root (/)")
+partitionType(0x8306, "3B8F8425-20E0-4F3B-907F-1A25A76F98E8", "Linux",       "linux//srv",          "Linux /srv")
+# these two added from wikipedia, no entry in gptfdisk code
+partitionType(0x8307, "7FFEC5C9-2D00-49B7-8941-3EA10A5586B7", "Linux",       "linux/crypt",         "Plain dm-crypt")
+partitionType(0x8308, "CA7D7CCB-63ED-4C53-861C-1742536059CC", "Linux",       "linux/luks",          "LUKS partition")
+
+# Used by Intel Rapid Start technology
+partitionType(0x8400, "D3BFE2DE-3DAF-11DF-BA40-E3A556D89593", None,          "intel/iffs",          "Intel Rapid Start")
+
+# Another Linux type code....
+partitionType(0x8e00, "E6D6D379-F507-44C2-A23C-238F2A3DF928", "Linux",       "linux/lvm",           "Linux LVM")
+
+# FreeBSD partition types....
+# Note: Rather than extract FreeBSD disklabel data, convert FreeBSD
+# partitions in-place, and let FreeBSD sort out the details....
+partitionType(0xa500, "516E7CB4-6ECF-11D6-8FF8-00022D09712B", "FreeBSD",     "freebsd/label",       "FreeBSD disklabel")
+partitionType(0xa501, "83BD6B9D-7F41-11DC-BE0B-001560B84F0F", "FreeBSD",     "freebsd/boot",        "FreeBSD boot")
+partitionType(0xa502, "516E7CB5-6ECF-11D6-8FF8-00022D09712B", "FreeBSD",     "freebsd/swap",        "FreeBSD swap")
+partitionType(0xa503, "516E7CB6-6ECF-11D6-8FF8-00022D09712B", "FreeBSD",     "freebsd/ufs",         "FreeBSD UFS")
+partitionType(0xa504, "516E7CBA-6ECF-11D6-8FF8-00022D09712B", "FreeBSD",     "freebsd/zfs",         "FreeBSD ZFS")
+partitionType(0xa505, "516E7CB8-6ECF-11D6-8FF8-00022D09712B", "FreeBSD",     "freebsd/raid",        "FreeBSD Vinum/RAID")
+
+# Midnight BSD partition types....
+partitionType(0xa580, "85D5E45A-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/data",    "Midnight BSD data")
+partitionType(0xa581, "85D5E45E-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/boot",    "Midnight BSD boot")
+partitionType(0xa582, "85D5E45B-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/swap",    "Midnight BSD swap")
+partitionType(0xa583, "0394Ef8B-237E-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/ufs",     "Midnight BSD UFS")
+partitionType(0xa584, "85D5E45D-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/zfs",     "Midnight BSD ZFS")
+partitionType(0xa585, "85D5E45C-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD", "midnightbsd/raid",    "Midnight BSD Vinum")
+
+# A MacOS partition type, separated from others by NetBSD partition types...
+partitionType(0xa800, "55465300-0000-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/ufs",           "Apple UFS")
+
+# NetBSD partition types. Note that the main entry sets it up as a
+# FreeBSD disklabel. I'm not 100% certain this is the correct behavior.
+partitionType(0xa900, "516E7CB4-6ECF-11D6-8FF8-00022D09712B", "NetBSD",      "netbsd/label",        "NetBSD disklabel")
+partitionType(0xa901, "49F48D32-B10E-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/swap",         "NetBSD swap")
+partitionType(0xa902, "49F48D5A-B10E-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/ffs",          "NetBSD FFS")
+partitionType(0xa903, "49F48D82-B10E-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/lfs",          "NetBSD LFS")
+partitionType(0xa904, "2DB519C4-B10F-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/concat",       "NetBSD concatenated")
+partitionType(0xa905, "2DB519EC-B10F-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/encrypt",      "NetBSD encrypted")
+partitionType(0xa906, "49F48DAA-B10E-11DC-B99B-0019D1879648", "NetBSD",      "netbsd/raid",         "NetBSD RAID")
+
+# Mac OS partition types (See also 0xa800, above)....
+partitionType(0xab00, "426F6F74-0000-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/boot",          "Apple boot")
+partitionType(0xaf00, "48465300-0000-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/hfs",           "Apple HFS/HFS+")
+partitionType(0xaf01, "52414944-0000-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/raid",          "Apple RAID")
+partitionType(0xaf02, "52414944-5F4F-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/raidoffline",   "Apple RAID offline")
+partitionType(0xaf03, "4C616265-6C00-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/label",         "Apple label")
+partitionType(0xaf04, "5265636F-7665-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/tvrecovery",    "AppleTV recovery")
+partitionType(0xaf05, "53746F72-6167-11AA-AA11-00306543ECAC", "Mac OS X",    "apple/core",          "Apple Core Storage")
+partitionType(0xbf01, "6A898CC3-1DD2-11B2-99A6-080020736631", "Mac OS X",    "apple/zfs",           "Apple ZFS")
+
+# Solaris partition types (one of which is shared with MacOS)
+partitionType(0xbe00, "6A82CB45-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/boot",        "Solaris boot")
+partitionType(0xbf00, "6A85CF4D-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/root",        "Solaris root")
+partitionType(0xbf01, "6A898CC3-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris//usr",        "Solaris /usr")
+partitionType(0xbf02, "6A87C46F-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/swap",        "Solaris swap")
+partitionType(0xbf03, "6A8B642B-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/backup",      "Solaris backup")
+partitionType(0xbf04, "6A8EF2E9-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris//var",        "Solaris /var")
+partitionType(0xbf05, "6A90BA39-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris//home",       "Solaris /home")
+partitionType(0xbf06, "6A9283A5-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/alternate",   "Solaris alternate sector")
+partitionType(0xbf07, "6A945A3B-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/reserved1",   "Solaris Reserved 1")
+partitionType(0xbf08, "6A9630D1-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/reserved2",   "Solaris Reserved 2")
+partitionType(0xbf09, "6A980767-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/reserved3",   "Solaris Reserved 3")
+partitionType(0xbf0a, "6A96237F-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/reserved4",   "Solaris Reserved 4")
+partitionType(0xbf0b, "6A8D2AC7-1DD2-11B2-99A6-080020736631", "Solaris",     "solaris/reserved5",   "Solaris Reserved 5")
+
+# I can find no MBR equivalents for these, but they're on the
+# Wikipedia page for GPT, so here we go....
+partitionType(0xc001, "75894C1E-3AEB-11D3-B7C1-7B03A0000000", "HP-UX",       "hpux/data",           "HP-UX data")
+partitionType(0xc002, "E2A1E728-32E3-11D6-A682-7B03A0000000", "HP-UX",       "hpux/service",        "HP-UX service")
+
+# See http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec
+partitionType(0xea00, "BC13C2FF-59E6-4262-A352-B275FD6F7172", None,          "freedesktop/boot",    "Freedesktop $BOOT")
+
+# Type code for Haiku; uses BeOS MBR code as hex code base
+partitionType(0xeb00, "42465331-3BA3-10F1-802A-4861696B7521", "Haiku",       "haiku/bfs",           "Haiku BFS")
+
+# Manufacturer-specific ESP-like partitions (in order in which they were added)
+partitionType(0xed00, "F4019732-066E-4E12-8273-346C5641494F", None,          "sony/system",         "Sony system partition")
+partitionType(0xed01, "BFBFAFE7-A34F-448A-9A5B-6213EB736C22", None,          "lenovo/system",       "Lenovo system partition");
+
+# EFI system and related paritions
+partitionType(0xef00, "C12A7328-F81F-11D2-BA4B-00A0C93EC93B", None,          "esp",                 "EFI System")
+partitionType(0xef01, "024DEE41-33E7-11D3-9D69-0008C781F39F", None,          "mbr",                 "MBR partition scheme")
+partitionType(0xef02, "21686148-6449-6E6F-744E-656564454649", None,          "biosboot",            "BIOS boot partition")
+
+
+# Ceph type codes; see https://github.com/ceph/ceph/blob/9bcc42a3e6b08521694b5c0228b2c6ed7b3d312e/src/ceph-disk#L76-L81
+partitionType(0xf800, "4FBD7E29-9D25-41B8-AFD0-062C0CEFF05D", None,          "ceph/osd",            "Ceph OSD")
+partitionType(0xf801, "4FBD7E29-9D25-41B8-AFD0-5EC00CEFF05D", None,          "ceph/osd-crypt",      "Ceph dm-crypt OSD")
+
+# Ceph Object Storage Daemon (encrypted)
+partitionType(0xf802, "BFBFAFE7-A34F-448A-9A5B-6213EB736C22", None,          "ceph/journal",        "Ceph journal")
+partitionType(0xf803, "45B0969E-9B03-4F30-B4C6-5EC00CEFF106", None,          "ceph/journal-crypt",  "Ceph dm-crypt journal")
+partitionType(0xf804, "89C57F98-2FE5-4DC0-89C1-F3AD0CEFF2BE", None,          "ceph/create",         "Ceph disk in creation")
+partitionType(0xf805, "89C57F98-2FE5-4DC0-89C1-5EC00CEFF2BE", None,          "ceph/create-crypt",   "Ceph dm-crypt disk in creation")
+
+# VMWare ESX partition types codes
+partitionType(0xfb00, "AA31E02A-400F-11DB-9590-000C2911D1B8", "VMWare",      "vmware/vmfs",         "VMWare VMFS")
+partitionType(0xfb01, "9198EFFC-31C0-11DB-8F78-000C2911D1B8", "VMWare",      "vmware/reserved",     "VMWare reserved")
+partitionType(0xfc00, "9D275380-40AD-11DB-BF97-000C2911D1B8", "VMWare",      "vmware/kcore",        "VMWare kcore crash protection")
+
+# A straggler Linux partition type....
+partitionType(0xfd00, "A19D880F-05FC-4D3B-A006-743F0F84911E", "Linux",       "linux/raid",          "Linux RAID")
+
 
 class InvalidPartitionNumber(Exception):
     """
