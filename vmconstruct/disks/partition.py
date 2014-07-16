@@ -230,7 +230,6 @@ class _partition(metaclass=abc.ABCMeta):
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._logger.debug("Building empty partition table")
-        self._bootable = None
         self._init()
 
 
@@ -243,7 +242,7 @@ class _partition(metaclass=abc.ABCMeta):
 
 
     @abc.abstractmethod
-    def addPartition(self, index, sizemb, filesystem, bootable=False):
+    def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
         """
         Add a partition table to the structure.
         """
@@ -285,6 +284,7 @@ class mbr(_partition):
         # PTE information
         self._partitions = SparseList(0, (None, None))
         self._epartitions = []
+        self._bootable = None
 
         # Binary representation
         self._pt = bytearray(b"\0"*512)		# The mbr is 512 bytes regardless of sector size
@@ -298,7 +298,7 @@ class mbr(_partition):
         self._pt[511] = 0xaa
 
 
-    def addPartition(self, index, sizemb, filesystem, bootable=None):
+    def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
         """
         Register a partition entry for the partition table
         """
@@ -309,8 +309,8 @@ class mbr(_partition):
             original_entry = self._partitions[index - 1]
             original_bootable = self._bootable
 
-            self._partitions[index - 1] = (sizemb, filesystem)
-            if bootable:
+            self._partitions[index - 1] = (sizemb, fscode)
+            if "bootable" in flags:
                 self._bootable = index - 1
 
             self._buildPartitions()
@@ -320,7 +320,7 @@ class mbr(_partition):
             self._buildPartitions()
             raise
 
-        self._logger.debug("Registered partition {i}, size {s}Mb, filesystem {f}, bootable {b}".format(i=index, s=sizemb, f=filesystem, b=bootable))
+        self._logger.debug("Registered partition {i}, size {s}Mb, filesystem {fs}, flags {fl}".format(i=index, s=sizemb, fs=fscode, fl=flags))
 
 
     def write(self, file):
@@ -520,11 +520,11 @@ class gpt(_partition):
             self._ptsec[0x10+byte] = (sec_crc >> (byte * 8)) & 0xff
 
 
-    def addPartition(self, index, sizemb, filesystem, name, bootable=False):
-        if index >= GPT_PTE_ENTS:
+    def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
+        if index > GPT_PTE_ENTS:
             raise InvalidPartitionNumber("Only configured to support {n} partitions".format(n=GPT_PTE_ENTS))
 
-        self._partitions[index-1] = (sizemb, filesystem, name)
+        self._partitions[index-1] = (sizemb, fscode, name)
         self._updatePts()
 
 

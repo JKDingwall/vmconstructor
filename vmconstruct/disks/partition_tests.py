@@ -55,7 +55,7 @@ class PartitionUT(unittest.TestCase):
         testfile = "/tmp/mbr_1part.img"
 
         pt = mbr()
-        pt.addPartition(1, 8, 0x83, bootable=True)
+        pt.addPartition(1, 8, 0x83, flags=["bootable"])
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
@@ -68,7 +68,7 @@ class PartitionUT(unittest.TestCase):
 
         pt = mbr()
         pt.addPartition(1, 8, 0x83)
-        pt.addPartition(2, 16, 0x83, bootable=True)
+        pt.addPartition(2, 16, 0x83, flags=["bootable"])
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
@@ -80,8 +80,8 @@ class PartitionUT(unittest.TestCase):
         testfile = "/tmp/mbr_13part.img"
 
         pt = mbr()
-        pt.addPartition(1, 8, 0x83, bootable=True)
-        pt.addPartition(3, 12, 0x83, bootable=False)
+        pt.addPartition(1, 8, 0x83, flags=["bootable"])
+        pt.addPartition(3, 12, 0x83, flags=[])
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
