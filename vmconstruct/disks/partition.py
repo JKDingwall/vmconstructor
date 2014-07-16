@@ -278,7 +278,7 @@ class _partition(metaclass=abc.ABCMeta):
 
 
 
-class msdos(_partition):
+class mbr(_partition):
     # http://en.wikipedia.org/wiki/Master_boot_record
 
     def _init(self):
@@ -324,7 +324,7 @@ class msdos(_partition):
 
 
     def write(self, file):
-        self._logger.debug("Writing msdos partition table to {f}".format(f=file))
+        self._logger.debug("Writing mbr partition table to {f}".format(f=file))
         with open(file, "rb+") as fp:
             fp.write(self._pt)
 
@@ -530,7 +530,7 @@ class gpt(_partition):
 
     def write(self, file):
         # Generate the protective mbr
-        protective_mbr = msdos()
+        protective_mbr = mbr()
         try:
             # If the disk is too large to be represented by an mbr partition then limit
             # it to the maximum representable size.

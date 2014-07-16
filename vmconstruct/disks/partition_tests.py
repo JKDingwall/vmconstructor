@@ -7,17 +7,17 @@ import unittest
 from random import choice
 
 if __name__ != "__main__":
-    from .partition import gpt, msdos, PartitionTooLarge, InvalidPartitionNumber
+    from .partition import gpt, mbr, PartitionTooLarge, InvalidPartitionNumber
 
 
 def suite():
     partitionTS = unittest.TestSuite()
-    partitionTS.addTest(PartitionUT("msdos_empty"))
-    partitionTS.addTest(PartitionUT("msdos_1part"))
-    partitionTS.addTest(PartitionUT("msdos_12part"))
-    partitionTS.addTest(PartitionUT("msdos_13part"))
-    partitionTS.addTest(PartitionUT("msdos_toolarge"))
-    partitionTS.addTest(PartitionUT("msdos_toooffset"))
+    partitionTS.addTest(PartitionUT("mbr_empty"))
+    partitionTS.addTest(PartitionUT("mbr_1part"))
+    partitionTS.addTest(PartitionUT("mbr_12part"))
+    partitionTS.addTest(PartitionUT("mbr_13part"))
+    partitionTS.addTest(PartitionUT("mbr_toolarge"))
+    partitionTS.addTest(PartitionUT("mbr_toooffset"))
 
     partitionTS.addTest(PartitionUT("gpt_empty"))
     partitionTS.addTest(PartitionUT("gpt_1part"))
@@ -38,35 +38,35 @@ class PartitionUT(unittest.TestCase):
         self.logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
-    def msdos_empty(self):
-        self.logger.info("Testing the creation of an empty msdos mbr partition table")
+    def mbr_empty(self):
+        self.logger.info("Testing the creation of an empty mbr mbr partition table")
 
-        testfile = "/tmp/msdos_empty.img"
+        testfile = "/tmp/mbr_empty.img"
 
-        pt = msdos()
+        pt = mbr()
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
-    def msdos_1part(self):
-        self.logger.info("Testing the creation of an msdos mbr partition table with one partition")
+    def mbr_1part(self):
+        self.logger.info("Testing the creation of an mbr mbr partition table with one partition")
 
-        testfile = "/tmp/msdos_1part.img"
+        testfile = "/tmp/mbr_1part.img"
 
-        pt = msdos()
+        pt = mbr()
         pt.addPartition(1, 8, 0x83, bootable=True)
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
-    def msdos_12part(self):
-        self.logger.info("Testing the creation of an msdos mbr partition table with partitions 1 and 2")
+    def mbr_12part(self):
+        self.logger.info("Testing the creation of an mbr mbr partition table with partitions 1 and 2")
 
-        testfile = "/tmp/msdos_12part.img"
+        testfile = "/tmp/mbr_12part.img"
 
-        pt = msdos()
+        pt = mbr()
         pt.addPartition(1, 8, 0x83)
         pt.addPartition(2, 16, 0x83, bootable=True)
         pt.makeDisk(testfile)
@@ -74,12 +74,12 @@ class PartitionUT(unittest.TestCase):
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
-    def msdos_13part(self):
-        self.logger.info("Testing the creation of an msdos mbr partition table with partitions 1 and 3")
+    def mbr_13part(self):
+        self.logger.info("Testing the creation of an mbr mbr partition table with partitions 1 and 3")
 
-        testfile = "/tmp/msdos_13part.img"
+        testfile = "/tmp/mbr_13part.img"
 
-        pt = msdos()
+        pt = mbr()
         pt.addPartition(1, 8, 0x83, bootable=True)
         pt.addPartition(3, 12, 0x83, bootable=False)
         pt.makeDisk(testfile)
@@ -87,17 +87,17 @@ class PartitionUT(unittest.TestCase):
         self.logger.info("Review the result with another paritioning tool to confirm the result")
 
 
-    def msdos_toolarge(self):
+    def mbr_toolarge(self):
         self.logger.info("Trying to make a 3Tb partition")
 
-        pt = msdos()
+        pt = mbr()
         self.assertRaises(PartitionTooLarge, pt.addPartition, 1, 3*1024*1024, 0x83)
 
 
-    def msdos_toooffset(self):
+    def mbr_toooffset(self):
         self.logger.info("Trying to make a partition starting beyond 2Tb")
 
-        pt = msdos()
+        pt = mbr()
         pt.addPartition(1, 1*1024*1024, 0x83)
         pt.addPartition(2, int(1.5*1024*1024), 0x83)
         self.assertRaises(PartitionTooLarge, pt.addPartition, 3, 64*1024, 0x83)
@@ -160,7 +160,7 @@ class PartitionUT(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    from partition import gpt, msdos, PartitionTooLarge, InvalidPartitionNumber
+    from partition import gpt, mbr, PartitionTooLarge, InvalidPartitionNumber
 
     runner = unittest.TextTestRunner()
     runner.run(suite())
