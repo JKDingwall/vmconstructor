@@ -1,4 +1,12 @@
-#!/usr/bin/env python3
+#!/bin/bash
+
+""":"
+if [ "$(dirname ${0})" = "." ] ; then
+    PP="$(pwd)/../.."
+fi
+
+PYTHONPATH="${PP}" exec /usr/bin/env python3 "${0}"
+":"""
 
 LOG_LEVEL = "DEBUG"
 
@@ -6,8 +14,7 @@ import logging
 import unittest
 from random import choice
 
-if __name__ != "__main__":
-    from .partition import gpt, mbr, PartitionTooLarge, InvalidPartitionNumber
+from vmconstruct.disks.partition import gpt, mbr, PartitionTooLarge, InvalidPartitionNumber
 
 
 def suite():
@@ -30,12 +37,8 @@ def suite():
 class PartitionUT(unittest.TestCase):
     @classmethod
     def setUpClass(self):
-        self.logger = logging.getLogger()
-        formatter = logging.Formatter('%(asctime)s: [%(levelname)s]%(name)s - %(message)s')
-        stderr_log_handler = logging.StreamHandler()
-        stderr_log_handler.setFormatter(formatter)
-        self.logger.addHandler(stderr_log_handler)
-        self.logger.setLevel(getattr(logging, LOG_LEVEL))
+        self.logger = logging.getLogger(__name__)
+        logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
     def mbr_empty(self):
@@ -160,7 +163,12 @@ class PartitionUT(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    from partition import gpt, mbr, PartitionTooLarge, InvalidPartitionNumber
+    logger = logging.getLogger()
+    formatter = logging.Formatter('%(asctime)s: [%(levelname)s]%(name)s - %(message)s')
+    stderr_log_handler = logging.StreamHandler()
+    stderr_log_handler.setFormatter(formatter)
+    logger.addHandler(stderr_log_handler)
+    logger.setLevel(getattr(logging, "INFO"))
 
     runner = unittest.TextTestRunner()
     runner.run(suite())
