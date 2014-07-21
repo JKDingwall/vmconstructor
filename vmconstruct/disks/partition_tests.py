@@ -34,11 +34,12 @@ def suite():
     return(partitionTS)
 
 
+
 class PartitionUT(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.logger = logging.getLogger(__name__)
-        logger.setLevel(getattr(logging, LOG_LEVEL))
+        self.logger.setLevel(getattr(logging, LOG_LEVEL))
 
 
     def mbr_empty(self):
@@ -127,7 +128,7 @@ class PartitionUT(unittest.TestCase):
         testfile = "/tmp/gpt_1part.img"
 
         pt = gpt()
-        pt.addPartition(1, 512, "linux", "a test name")
+        pt.addPartition(1, 512, "linux/filesystem", "a test name")
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
@@ -142,7 +143,7 @@ class PartitionUT(unittest.TestCase):
 
         pt = gpt()
         for x in range(choice(range(1, 129))):
-            pt.addPartition(x, 16, "linux", "a test name")
+            pt.addPartition(x, 16, "linux/filesystem", "a test name")
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
@@ -156,10 +157,11 @@ class PartitionUT(unittest.TestCase):
         testfile = "/tmp/gpt_1part.img"
 
         pt = gpt()
-        self.assertRaises(InvalidPartitionNumber, pt.addPartition, 129, 512, "linux", "a test name")
+        self.assertRaises(InvalidPartitionNumber, pt.addPartition, 129, 512, "linux/filesystem", "a test name")
         pt.makeDisk(testfile)
 
         self.logger.info("Review the result with another paritioning tool to confirm the result")
+
 
 
 if __name__ == "__main__":

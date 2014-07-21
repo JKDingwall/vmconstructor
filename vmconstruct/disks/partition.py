@@ -28,15 +28,65 @@ generate a random uuid for gpt header
 _partitionTypes = []
 
 class partitionType(object):
-    def __init__(self, gptCode, uuidStr, os, code, type):
-        self._code = code
-        self._uuid = uuid.UUID("{{{uuid}}}".format(uuid=uuidStr))
+    _filesystem2fscode = {
+        "ext3": "linux/filesystem"
+    }
+
+    def __init__(self, gptCode, uuidStr, os, code, type, fsnames=[]):
         self._gptCode = gptCode
         self._mbrCode = (gptCode >> 8) if not ((gptCode | 0xff00) ^ 0xff00) else -1
+        self._uuid = uuid.UUID("{{{uuid}}}".format(uuid=uuidStr))
+        self._code = code
         self._type = type
 
         _partitionTypes.append(self)
 
+
+    @classmethod
+    def resolveGPTEntry(self, fscode):
+        """
+        Return a uuid object for use in the partition table.
+        """
+
+        # try parsing the code to a uuid, works even if the
+        # uuid is not registered, e.g. for some unknown type.
+        try:
+            return(uuid.UUID("{{{s}}}".format(s=fscode)))
+        except ValueError:
+            pass
+
+        # try getting the uuid by matching gpt short code and
+        # our text code.
+        l = [x for x in _partitionTypes if x._gptCode == fscode]
+        if l: return(l.pop())
+
+        l = [x for x in _partitionTypes if x._code == fscode]
+        if l: return(l.pop())
+
+        if fscode in self._filesystem2fscode:
+            return(self.resolveGPTEntry(self._filesystem2fscode[fscode]))
+
+        raise Exception("Unknown Code")
+
+
+    @classmethod
+    def resolveGPTCode(self, fscode):
+        return(self.resolveGPTEntry(fscode)._uuid)
+
+
+    @classmethod
+    def resolveMBRCode(self, fscode):
+        if isinstance(fscode, int) and fscode in range(256):
+            return(fscode)
+
+        # try our text code
+        l = [x._uuid for x in _partitionTypes if x._code == fscode]
+        if l: return(l.pop())
+
+        if fscode in self._filesystem2fscode:
+            return(self.resolveMBRCode(self._filesystem2fscode[fscode]))
+
+        raise Exception("Unknown Code")
 
 
 # Well know guid partition table pte guids (http://en.wikipedia.org/wiki/GUID_Partition_Table)
@@ -476,7 +526,7 @@ class gpt(_partition):
             offset = pte * GPT_PTE_SIZE
             if sizemb:
                 # partition type guid
-                self._ptes[offset:offset+16] = uuid.UUID('{0FC63DAF-8483-4772-8E79-3D69D8477DE4}').bytes_le
+                self._ptes[offset:offset+16] = partitionType.resolveGPTCode(filesystem).bytes_le
                 # unique partition uid
                 self._ptes[offset+0x10:offset+0x10+16] = uuid.uuid4().bytes_le
                 # start lba address (LE)
@@ -523,6 +573,9 @@ class gpt(_partition):
     def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
         if index > GPT_PTE_ENTS:
             raise InvalidPartitionNumber("Only configured to support {n} partitions".format(n=GPT_PTE_ENTS))
+
+        if not name:
+            name = partitionType.resolveGPTEntry(fscode)._type
 
         self._partitions[index-1] = (sizemb, fscode, name)
         self._updatePts()
