@@ -29,7 +29,8 @@ _partitionTypes = []
 
 class partitionType(object):
     _filesystem2fscode = {
-        "ext3": "linux/filesystem"
+        "ext3": "linux/filesystem",
+        "ext4": "linux/filesystem"
     }
 
     def __init__(self, gptCode, uuidStr, os, code, type, fsnames=[]):

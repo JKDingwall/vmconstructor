@@ -27,6 +27,7 @@ def suite():
 
     pkgTS.addTest(DisksUT("emptyGptDisk"))
     pkgTS.addTest(DisksUT("onePartGptDisk"))
+    pkgTS.addTest(DisksUT("formatGptDisk"))
 
     return(pkgTS)
 
@@ -62,8 +63,19 @@ class DisksUT(unittest.TestCase):
         d = disk(self.disksvol.create("onePartGptDisk"), "test", diskdfn)
 
 
-    def null(self):
-        pass
+    def formatGptDisk(self):
+        diskdfn = yaml.load("""\
+  label: gpt
+  partitions:
+    1:
+      size: 1024
+      filesystem: ext3
+    2:
+      size: 512
+      filesystem: ext4
+""")
+        d = disk(self.disksvol.create("formatGptDisk"), "test", diskdfn)
+        d.format()
 
 
 
@@ -73,7 +85,7 @@ if __name__ == "__main__":
     stderr_log_handler = logging.StreamHandler()
     stderr_log_handler.setFormatter(formatter)
     logger.addHandler(stderr_log_handler)
-    logger.setLevel(getattr(logging, "INFO"))
+    logger.setLevel(getattr(logging, "DEBUG"))
 
     runner = unittest.TextTestRunner()
     runner.run(suite())

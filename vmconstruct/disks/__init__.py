@@ -5,6 +5,9 @@ __all__ = [
 
 import logging
 import os
+import re
+import subprocess
+from sparse_list import SparseList
 
 from . import partition
 
@@ -22,6 +25,7 @@ class disks(object):
 class disk(object):
     def __init__(self, subvol, id, defn):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
+        self._lo = SparseList(0)
 
         # mbr or gpt
         label = defn.get("label", "gpt")
@@ -54,4 +58,41 @@ class disk(object):
             if not os.path.isdir(os.path.join(subvol.path, "disks")):
                 raise
 
-        self._pt.makeDisk(os.path.join(subvol.path, "disks", "{id}.img".format(id=id)))
+        self._image = os.path.join(subvol.path, "disks", "{id}.img".format(id=id))
+        self._pt.makeDisk(self._image)
+
+
+    def losetup(self):
+        """
+        Execute losetup to map the partitions in the image file to devices.
+        """
+        if not len(self._lo):
+            cmd = ["kpartx", "-avs", self._image]
+            self._logger.debug("Mapping image partitions: {cmd}".format(cmd=cmd))
+            loopre = re.compile("^loop([0-9]+)p([0-9]+)$")
+            for l in subprocess.check_output(cmd).decode(encoding="UTF-8").splitlines():
+                m = re.search("^loop[0-9]+p([0-9]+)$", l.split()[2])
+                self._lo[int(m.group(1))] = ("/dev/mapper/"+l.split()[2], l.split()[7])
+
+
+    def unlosetup(self):
+        """
+        Unmap mapped partitions.
+        """
+        if len(self._lo):
+            cmd = ["kpartx", "-dvs", self._image]
+            self._logger.debug("Unmapping image partitions: {cmd}".format(cmd=cmd))
+            subprocess.check_output(cmd)
+
+
+    def format(self):
+        """
+        Format the partitions for the requested filesystem.
+        """
+        self.losetup()
+        for (k, (mapper, loop)) in self._lo.elements.items():
+            cmd = ["mkfs", "-t", "ext4", mapper]
+            self._logger.debug("Formatting disk partition {k}: {cmd}".format(k=k, cmd=cmd))
+            subprocess.check_output(cmd)
+
+        self.unlosetup()
