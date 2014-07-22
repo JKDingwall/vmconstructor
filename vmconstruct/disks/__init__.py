@@ -26,6 +26,7 @@ class disk(object):
     def __init__(self, subvol, id, defn):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._lo = SparseList(0)
+        self._parts = SparseList(0)
 
         # mbr or gpt
         label = defn.get("label", "gpt")
@@ -50,6 +51,7 @@ class disk(object):
             else:
                 name = None
 
+            self._parts[idx] = (part["size"], part["filesystem"], part.get("label", None))
             self._pt.addPartition(idx, part["size"], part.get("partcode", part["filesystem"]), name=name, flags=part.get("flags", []))
 
         try:
@@ -91,8 +93,12 @@ class disk(object):
         """
         self.losetup()
         for (k, (mapper, loop)) in self._lo.elements.items():
-            cmd = ["mkfs", "-t", "ext4", mapper]
-            self._logger.debug("Formatting disk partition {k}: {cmd}".format(k=k, cmd=cmd))
-            subprocess.check_output(cmd)
+            (size, filesystem, label) = self._parts[k]
+            cmd = ["mkfs", "-t", filesystem, mapper]
+            self._logger.debug("Formatting disk {size}Mb partition {k}: {cmd}".format(size=size, k=k, cmd=cmd))
+            try:
+                print(subprocess.check_output(cmd).decode(encoding="UTF-8"))
+            except Exception:
+                pass
 
         self.unlosetup()
