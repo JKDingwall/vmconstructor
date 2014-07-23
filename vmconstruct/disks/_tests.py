@@ -12,6 +12,7 @@ LOG_LEVEL = "DEBUG"
 BTRFS = "/export/workspace"
 
 import logging
+import time
 import unittest
 import yaml
 
@@ -28,6 +29,7 @@ def suite():
     pkgTS.addTest(DisksUT("emptyGptDisk"))
     pkgTS.addTest(DisksUT("onePartGptDisk"))
     pkgTS.addTest(DisksUT("formatGptDisk"))
+    pkgTS.addTest(DisksUT("mountGptDisk"))
 
     return(pkgTS)
 
@@ -59,6 +61,7 @@ class DisksUT(unittest.TestCase):
     1:
       size: 1024
       filesystem: ext3
+      mount: /
 """)
         d = disk(self.disksvol.create("onePartGptDisk"), "test", diskdfn)
 
@@ -70,12 +73,35 @@ class DisksUT(unittest.TestCase):
     1:
       size: 1024
       filesystem: ext3
+      mount: /
     2:
       size: 512
       filesystem: ext4
+      mount: /home
 """)
         d = disk(self.disksvol.create("formatGptDisk"), "test", diskdfn)
         d.format()
+
+    def mountGptDisk(self):
+        diskdfn = yaml.load("""\
+  label: gpt
+  partitions:
+    1:
+      size: 1024
+      filesystem: ext3
+      mount: /
+    2:
+      size: 512
+      filesystem: ext4
+      mount: /home
+""")
+        d = disk(self.disksvol.create("mountGptDisk"), "test", diskdfn)
+        d.format()
+        d.losetup()
+        d.mount()
+        time.sleep(60)
+        d.umount()
+        d.ulosetup()
 
 
 
