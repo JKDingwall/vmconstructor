@@ -29,8 +29,11 @@ _partitionTypes = []
 
 class partitionType(object):
     _filesystem2fscode = {
+        "btrfs": "linux/filesystem",
+        "ext2": "linux/filesystem",
         "ext3": "linux/filesystem",
-        "ext4": "linux/filesystem"
+        "ext4": "linux/filesystem",
+        "xfs": "linux/filesystem"
     }
 
     def __init__(self, gptCode, uuidStr, os, code, type, fsnames=[]):
@@ -322,6 +325,7 @@ class _partition(metaclass=abc.ABCMeta):
         Create a suitably sized sparse file and then write the partition table.
         """
         with open(file, "ab") as fp:
+            fp.truncate(0)
             fp.truncate(self.diskSize())
 
         self.write(file)

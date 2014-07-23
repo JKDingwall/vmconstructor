@@ -17,7 +17,7 @@ import unittest
 import yaml
 
 from vmconstruct.btrfs import subvolume
-from vmconstruct.disks import disk
+from vmconstruct.disks import disk, disks
 from vmconstruct.disks.partition_tests import suite as partition_suite
 
 
@@ -30,6 +30,9 @@ def suite():
     pkgTS.addTest(DisksUT("onePartGptDisk"))
     pkgTS.addTest(DisksUT("formatGptDisk"))
     pkgTS.addTest(DisksUT("mountGptDisk"))
+
+    pkgTS.addTest(DisksUT("format2GptDisks"))
+    pkgTS.addTest(DisksUT("mount2GptDisks"))
 
     return(pkgTS)
 
@@ -97,11 +100,78 @@ class DisksUT(unittest.TestCase):
 """)
         d = disk(self.disksvol.create("mountGptDisk"), "test", diskdfn)
         d.format()
-        d.losetup()
         d.mount()
-        time.sleep(60)
+        time.sleep(5)
         d.umount()
-        d.ulosetup()
+
+
+    def format2GptDisks(self):
+        disksdfn = yaml.load("""\
+test1:
+  label: gpt
+  partitions:
+    1:
+      size: 1024
+      filesystem: ext3
+      mount: /
+    2:
+      size: 512
+      filesystem: ext4
+      mount: /home
+test2:
+  label: gpt
+  partitions:
+    1:
+      size: 512
+      filesystem: xfs
+      mount: /var
+    2:
+      size: 512
+      filesystem: btrfs
+      mount: /tmp
+    3:
+      size: 512
+      filesystem: ext4
+      mount: /home/ftp
+""")
+        d = disks(self.disksvol.create("format2GptDisks"), disksdfn)
+        d.format()
+
+
+    def mount2GptDisks(self):
+        disksdfn = yaml.load("""\
+test1:
+  label: gpt
+  partitions:
+    1:
+      size: 1024
+      filesystem: ext3
+      mount: /
+    2:
+      size: 512
+      filesystem: ext4
+      mount: /home
+test2:
+  label: gpt
+  partitions:
+    1:
+      size: 512
+      filesystem: xfs
+      mount: /var
+    2:
+      size: 512
+      filesystem: btrfs
+      mount: /tmp
+    3:
+      size: 512
+      filesystem: ext4
+      mount: /home/ftp
+""")
+        d = disks(self.disksvol.create("mount2GptDisks"), disksdfn)
+        d.format()
+        d.mount()
+        time.sleep(5)
+        d.umount()
 
 
 

@@ -6,6 +6,7 @@ __all__ = [
 import logging
 import os
 import re
+import stat
 import subprocess
 from sparse_list import SparseList
 
@@ -17,9 +18,32 @@ class disks(object):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._disks = {}
 
-        for (k, v) in disksyml:
+        for (k, v) in disksyml.items():
             self._disks[k] = disk(subvol, k, v)
 
+
+    def format(self):
+        """
+        Format all disks.
+        """
+        for (k, v) in self._disks.items():
+            v.format()
+
+
+    def mount(self):
+        """
+        Mount all disks.
+        """
+        for (mount, disk) in sorted([(m, v) for (k, v) in self._disks.items() for m in v.mounts]):
+            disk.mount(mount)
+
+
+    def umount(self):
+        """
+        Umount all disks.
+        """
+        for (mount, disk) in reversed(sorted([(m, v) for (k, v) in self._disks.items() for m in v.mounts])):
+            disk.umount(mount)
 
 
 
@@ -84,7 +108,7 @@ class disk(object):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
         self._parts = SparseList(0)
         self._lo = self._losetup(id, self)
-        self._mounts = []
+        self._mounts = {}
         self._subvol = subvol
 
         # mbr or gpt
@@ -119,6 +143,10 @@ class disk(object):
             if not os.path.isdir(os.path.join(self._subvol.path, "disks")):
                 raise
 
+        # Use fs to compress the image on disk
+        #os.chflags(os.path.join(self._subvol.path, "disks"), stat.UF_COMPRESSED)
+        #subprocess.check_call(["chattr", "+c", os.path.join(self._subvol.path, "disks")])
+
         self.image = os.path.join(self._subvol.path, "disks", "{id}.img".format(id=id))
         self._pt.makeDisk(self.image)
 
@@ -140,21 +168,28 @@ class disk(object):
                 (size, filesystem, mount, label) = self._parts[k]
                 cmd = ["mkfs", "-t", filesystem, mapper]
                 self._logger.debug("Formatting disk {size}Mb partition {k}: {cmd}".format(size=size, k=k, cmd=cmd))
-                try:
-                    print(subprocess.check_output(cmd).decode(encoding="UTF-8"))
-                except Exception:
-                    pass
+                print(subprocess.check_output(cmd).decode(encoding="UTF-8"))
+
+
+    @property
+    def mounts(self):
+        """
+        Return the mount points defined on this disk.
+        """
+        return(sorted([mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items()]))
 
 
     def mount(self, mounts=None):
         """
         Mount the filesytems at mnt under the disk subvolume
         """
+
+        self.losetup()
+
         if mounts:
             mounts = [mounts]
         else:
-            mounts = [mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items()]
-            mounts.sort()
+            mounts = self.mounts
 
         for mount in mounts:
             mnt = os.path.join(self._subvol.path, "mnt", mount[1:])
@@ -170,12 +205,22 @@ class disk(object):
             cmd = ["mount", mapper, mnt]
             self._logger.debug("Mounting filesystem: {cmd}".format(cmd=cmd))
             subprocess.check_call(cmd)
-            self._mounts.append((mapper, mnt))
+            self._mounts[mnt] = mapper
 
 
-    def umount(self):
-        for m in range(0, len(self._mounts)):
-            (mapper, mnt) = self._mounts.pop()
-            cmd = ["umount", mapper]
-            self._logger.debug("Umounting filesystem: {cmd}".format(cmd=cmd))
-            subprocess.check_call(cmd)
+    def umount(self, mounts=None):
+        if mounts:
+            mounts = [mounts]
+        else:
+            mounts = reversed(self.mounts)
+
+        for mount in mounts:
+            mnt = os.path.join(self._subvol.path, "mnt", mount[1:])
+            if mnt in self._mounts:
+                cmd = ["umount", mnt]
+                self._logger.debug("Umounting filesystem: {cmd}".format(cmd=cmd))
+                subprocess.check_call(cmd)
+                del(self._mounts[mnt])
+
+        if not len(self._mounts.keys()):
+            self.ulosetup()
