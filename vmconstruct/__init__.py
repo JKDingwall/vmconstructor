@@ -1,8 +1,8 @@
 """
 
 .. module:: vmconstruct
-   :platform: Unix
-   :synopsis: The core vmconstruct module
+    :platform: Unix
+    :synopsis: The core vmconstruct module
 
 .. moduleauthor:: James Dingwall <james@dingwall.me.uk>
 
@@ -42,14 +42,14 @@ def main():
     mainap = argparse.ArgumentParser(description="An Ubuntu virtual machine builder")
     # core options
     mainap.add_argument("-c", "--config", metavar="CONFIG FILE", help="configuration file ({d})".format(d=cfgdefs["config"]),
-        nargs="?", action="store", dest="config", default=cfgdefs["config"])
+        action="store", dest="config", default=cfgdefs["config"])
     # logging configuration
     mainap.add_argument("-l", "--log", metavar="LOG DIRECTORY", help="path to log file ({d})".format(d=cfgdefs["log"]),
-        nargs="?", action="store", dest="log", default=cfgdefs["log"])
+        action="store", dest="log", default=cfgdefs["log"])
     mainap.add_argument("-d", "--loglevel", metavar="LOG LEVEL", help="base logging level ({d})".format(d=cfgdefs["loglevel"]),
-        nargs="?", action="store", dest="loglevel", default=cfgdefs["loglevel"])
+        action="store", dest="loglevel", default=cfgdefs["loglevel"])
     mainap.add_argument("-L", "--logconfig", metavar="LOG CONFIG", help="logging configuration file ({d})".format(d=cfgdefs["logconfig"]),
-        nargs="?", action="store", dest="logconfig", default=cfgdefs["logconfig"])
+        action="store", dest="logconfig", default=cfgdefs["logconfig"])
 
     cmdline = mainap.parse_args()
 
@@ -119,6 +119,18 @@ def main():
                 base.bootstrap(rel, archive=archive)
                 update = base.clone("_update")
                 update.update()
+
+    # create individual builds
+    for vmdef in ymlcfg["build"]["vmdefs"]:
+        logger.debug("Starting build of {v}".format(v=vmdef))
+        with open(os.path.join(ymlcfg["global"]["paths"]["vmdefs"], vmdef+".yml"), "rb") as fp:
+            vmyml = yaml.load(fp)
+
+        distvol = wsroot.create(vmyml["dist"])
+        relvol = distvol.create(vmyml["release"])
+        base = bootstrap.ubuntu(relvol.create(vmyml.get("base", "_update")))
+        vm = base.clone(vmdef)
+        vm.install(*vmyml.get("packages", []))
 
     # exit
     logging.shutdown()

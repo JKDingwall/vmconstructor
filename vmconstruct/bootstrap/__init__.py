@@ -184,8 +184,9 @@ class debootstrap(_bootstrap):
         self._imagepath = os.path.join(self._subvol.path, "origin")
 
         if not archive:
-             archive = DEFAULT_UBUNTU_ARCHIVE
+            archive = DEFAULT_UBUNTU_ARCHIVE
 
+        # Split this to foreign / second step
         cmd = [
             "debootstrap",
             "--verbose",
@@ -198,9 +199,9 @@ class debootstrap(_bootstrap):
         ]
 
         self._status["origin"] = {
-             "release": release,
-             "archive": archive,
-             "uuid": self._status["uuid"]
+            "release": release,
+            "archive": archive,
+            "uuid": self._status["uuid"]
         }
         self._saveStatus()
 

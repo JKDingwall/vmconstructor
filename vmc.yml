@@ -19,7 +19,13 @@ build:
             - precise
             - trusty
     basetemplates: tpl/base
-    vmdefs: vm
+    vmdefs:
+        - desktop
+
+# global
+global:
+    paths:
+        vmdefs: /root/images-build/vmdefs
 
 # global parameters for the build
 ubuntu:
