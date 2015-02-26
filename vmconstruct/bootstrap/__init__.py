@@ -16,7 +16,7 @@ DEFAULT_UBUNTU_ARCHIVE = "http://gb.archive.ubuntu.com/ubuntu/"
 
 
 class ImageNotReady(Exception):
-    """
+    """\
     Raise if a request to clone the image is made but the image build has not completed.
     """
     pass
@@ -35,7 +35,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def _imagecls(self):
-        """
+        """\
         The _image class that this _bootstrap generates.
         """
         pass
@@ -76,23 +76,30 @@ class _imageBase(object, metaclass=abc.ABCMeta):
 
     def setStatus(self, status):
         self._status["progress"] = {
-           "status": status,
-           "timestamp": time.time()
+            "status": status,
+            "timestamp": time.time()
         }
         self._saveStatus()
 
 
     def logActivity(self, activity, data):
-         self._status["activity"].append({
-             "time": time.time(),
-             "activity": activity,
-             "data": data
-         })
-         self._saveStatus()
+          self._status["activity"].append({
+              "time": time.time(),
+              "activity": activity,
+              "data": data
+          })
+          self._saveStatus()
+
+
+    def solidify(self, disks):
+        """\
+        Finalise the image to disk volumes.
+        """
+        pass
 
 
     def clone(self, name):
-        """
+        """\
         Clone this image to the given name an _image class for it.
         """
         if self.getStatus() != "complete":
@@ -110,6 +117,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
             if self._status["uuid"] == img._status["origin"]["uuid"]:
                 return(img)
             else:
+                # The existing snapshot is not derived from the current parent
                 raise
 
 
@@ -118,7 +126,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
 class _bootstrap(_imageBase, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def bootstrap(self, *args, **kw):
-        """
+        """\
         This method should take the empty volume and build a basic image in it.
         """
         pass
@@ -138,7 +146,7 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def update(self):
-        """
+        """\
         This method should take an existing image and run the necessary commands to bring
         the installed packages up to their latest versions.
         """
@@ -147,14 +155,14 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def install(self, *args):
-        """
+        """\
         Install the packages given as an argument.
         """
         pass
 
 
     def newUUID(self):
-        """
+        """\
         Change the uuid of this vm image
         """
         self._status["uuid"] = str(uuid.uuid4())
@@ -162,15 +170,33 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
 
     def execChroot(self, *args):
-        """
+        """\
         Execute the array of commands in the chroot environment.
         """
-        self._prepareChroot()
-        for cmd in args:
-            self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=os.path.join(self._subvol.path, "origin"), cmd=cmd))
-            self.logActivity("chroot", cmd)
-            subprocess.check_call(["chroot", os.path.join(self._subvol.path, "origin")] + cmd)
-        self._unprepareChroot()
+        try:
+            self._prepareChroot()
+            for cmd in args:
+                self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=os.path.join(self._subvol.path, "origin"), cmd=cmd))
+                self.logActivity("chroot", cmd)
+                subprocess.check_call(["chroot", os.path.join(self._subvol.path, "origin")] + cmd)
+        except Exception:
+            raise
+        finally:
+            self._unprepareChroot()
+
+
+    def applyTemplates(self, tpldir):
+        """\
+        Find templates in tpldir and apply them to the image.
+        """
+        pass
+
+
+    def applyPayload(self, payload):
+        """\
+        Apply a payload package + script.
+        """
+        pass
 
 
 

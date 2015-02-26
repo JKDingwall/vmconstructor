@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""
+"""\
 
 .. module:: vmconstruct
    :platform: Unix

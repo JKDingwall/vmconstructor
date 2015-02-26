@@ -34,7 +34,7 @@ cfgdefs = {
 
 
 def main():
-    """
+    """\
     The main function which will start everything up...
     """
 

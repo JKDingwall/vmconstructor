@@ -17,7 +17,7 @@ class subvolume(object):
 
     def __eq__(self, other):
         if isinstance(other, subvolume):
-           other = other.path
+            other = other.path
 
         self._logger.debug("Comparing {x} to {y}".format(x=other, y=self.path))
 
@@ -82,7 +82,7 @@ class subvolume(object):
 
 
     def delete(self, recursive=False):
-        """
+        """\
         Delete a subvolume (recursively)
         """
 
