@@ -291,4 +291,4 @@ class ubuntu(_image):
 
     def install(self, *args):
         self._logger.debug("Installing packages: {a}".format(a=args))
-        self.execChroot(*[["apt-get", "install", x] for x in args])
+        self.execChroot(*[["apt-get", "-y", "install", x] for x in args])
