@@ -129,7 +129,16 @@ def main():
         distvol = wsroot.create(vmyml["dist"])
         relvol = distvol.create(vmyml["release"])
         base = bootstrap.ubuntu(relvol.create(vmyml.get("base", "_update")))
-        vm = base.clone(vmdef)
+        try:
+            vm = base.clone(vmdef)
+        except FileExistsError:
+            logger.warning("TODO: make the delete behaviour configurable")
+            rebuild = True
+            if rebuild:
+                base._subvol._parent.create(vmdef).delete()
+                vm = base.clone(vmdef)
+            else:
+                raise
         vm.install(*vmyml.get("packages", []))
 
     # exit
