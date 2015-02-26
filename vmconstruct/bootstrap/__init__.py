@@ -249,14 +249,14 @@ class debootstrap(_bootstrap):
             subprocess.check_call(cmd)
             self.setStatus("complete")
         except (KeyboardInterrupt):
-            # Make sure any potential mounts are cleaned up
-            subprocess.call(["umount", os.path.join(self._imagepath, "proc")])
-            subprocess.call(["umount", os.path.join(self._imagepath, "sys")])
             self.setStatus("interrupted")
             raise
         except (Exception):
             self.setStatus("failed")
         finally:
+            # Make sure any potential mounts are cleaned up
+            subprocess.call(["umount", os.path.join(self._imagepath, "proc")])
+            subprocess.call(["umount", os.path.join(self._imagepath, "sys")])
             self._logger.info("Build ended after {s}s".format(s=time.time()-start))
 
 
