@@ -113,12 +113,14 @@ def main():
             except (KeyError, TypeError):
                 archive = None
 
+            proxy = ymlcfg[dist].get("proxy", None)
+
             for rel in rels:
                 relvol = distvol.create(rel)
                 base = bootstrap.debootstrap(relvol.create("_bootstrap"))
-                base.bootstrap(rel, archive=archive)
+                base.bootstrap(rel, archive=archive, proxy=proxy)
                 update = base.clone("_update")
-                update.update()
+                update.update(proxy=proxy)
 
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:

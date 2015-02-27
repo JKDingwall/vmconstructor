@@ -206,7 +206,7 @@ class debootstrap(_bootstrap):
     def _imagecls(self):
         return(ubuntu)
 
-    def bootstrap(self, release, archive=None):
+    def bootstrap(self, release, archive=None, proxy=None):
         self._release = release
         self._imagepath = os.path.join(self._subvol.path, "origin")
 
@@ -215,7 +215,7 @@ class debootstrap(_bootstrap):
 
         # Split this to foreign / second step
         cmd = [
-            "debootstrap",
+            "/usr/sbin/debootstrap",
             "--verbose",
             "--variant=minbase",
             "--arch=amd64",
@@ -224,6 +224,11 @@ class debootstrap(_bootstrap):
             self._imagepath,
             archive
         ]
+
+        env = {}
+        if proxy:
+            os.environ["http_proxy"] = proxy
+            env["http_proxy"] = proxy
 
         self._status["origin"] = {
             "release": release,
@@ -242,8 +247,8 @@ class debootstrap(_bootstrap):
         else:
             self._logger.error("")
 
-        self._logger.debug("Executing debootstrap with command: {cmd}".format(cmd=cmd))
-        self.logActivity("bootstrap", cmd)
+        self._logger.debug("Executing debootstrap with command: {cmd}, environment: {env}".format(cmd=cmd, env=env))
+        self.logActivity("bootstrap", { "cmd": cmd, "env": env })
         try:
             start = time.time()
             self.setStatus("building")
@@ -254,6 +259,7 @@ class debootstrap(_bootstrap):
             raise
         except (Exception):
             self.setStatus("failed")
+            raise
         finally:
             # Make sure any potential mounts are cleaned up
             subprocess.call(["umount", os.path.join(self._imagepath, "proc")])
@@ -320,17 +326,23 @@ done
             subprocess.check_call(["umount", "-l", os.path.join(self._subvol.path, "origin", mnt)])
 
 
-    def update(self):
+    def update(self, proxy=None):
         self.setStatus("updating")
         self.newUUID()
-        self.execChroot(
-            ["apt-get", "update"],
-            ["apt-get", "-y", "upgrade"]
-        )
+        if proxy:
+            self.execChroot(
+                ["apt-get", "update", "-o", "Acquire::http::Proxy={p}".format(p=proxy)],
+                ["apt-get", "-y", "upgrade", "-o", "Acquire::http::Proxy={p}".format(p=proxy)]
+            )
+        else:
+            self.execChroot(
+                ["apt-get", "update"],
+                ["apt-get", "-y", "upgrade"]
+            )
         self.setStatus("complete")
 
 
-    def install(self, *args):
+    def install(self, *args, proxy=None):
         self._logger.debug("Installing packages: {a}".format(a=args))
         self._logger.warning("Support arbitrary arguments for apt-get command")
         self.execChroot(*[["apt-get", "-y", "install", x] for x in args])
