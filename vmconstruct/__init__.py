@@ -120,6 +120,12 @@ def main():
                 base = bootstrap.debootstrap(relvol.create("_bootstrap"))
                 base.bootstrap(rel, archive=archive, proxy=proxy)
                 update = base.clone("_update")
+                updvmyml = {
+                    "dist": dist,
+                    "release": rel
+                }
+                [update.applytemplates(os.path.join(basetpl, dist, "_all", "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+                [update.applytemplates(os.path.join(basetpl, dist, rel, "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 update.update(proxy=proxy)
 
     # create individual builds

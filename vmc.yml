@@ -7,7 +7,8 @@ logging:
 # workspace area configuration
 workspace:
     # this must be a mount point for a btrfs filesystem
-    rootpath: /export/workspace
+    #rootpath: /export/workspace
+    rootpath: /mnt/scratch
 
 # build definitions
 build:
@@ -18,7 +19,8 @@ build:
         ubuntu:
             - precise
             - trusty
-    basetemplates: tpl/base
+    basetemplates:
+        - /root/images-build/tpl
     vmdefs:
         - desktop
         - dom0
@@ -33,7 +35,7 @@ global:
 # global parameters for the build
 ubuntu:
     # The archive to use for packages
-    #archive: http://gb.archive.ubuntu.com/ubuntu/
-    archive: http://localhost:3142/ubuntu/
+    archive: http://gb.archive.ubuntu.com/ubuntu/
+    #archive: http://localhost:3142/ubuntu/
     # An (apt) proxy to download packages through, e.g. apt-cacher-ng
-    #proxy: http://localhost:3192/
+    proxy: http://localhost:3142/

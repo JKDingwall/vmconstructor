@@ -8,6 +8,8 @@ import stat
 import subprocess
 import time
 import uuid
+from mako.exceptions import CompileException
+from mako.template import Template
 
 # TODO:
 #  - make the architecture a parameter
@@ -186,14 +188,33 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
             self._unprepareChroot()
 
 
-    def applyTemplates(self, tpldir):
+    def applytemplates(self, tpldir, ymlcfg, vmyml):
         """\
         Find templates in tpldir and apply them to the image.
         """
-        pass
+        if not os.path.isdir(tpldir):
+            self._logger.warning("{td} is not a directory, ignoring for templating".format(td=tpldir))
+            return
+
+        self._logger.debug("Applying templates from {td}".format(td=tpldir))
+
+        for (root, dirs, files) in os.walk(tpldir):
+            for tplfile in [file for file in files if file.endswith(".tpl")]:
+                with open(os.path.join(root, tplfile), "rb") as tplfp:
+                    makot = Template(tplfp.read(), strict_undefined=True)
+
+                install = {}
+                makot.get_def("install").render(i=install)
+                install["dest"] = os.path.join(self._subvol.path, "origin", *install["filename"].split(os.sep))
+
+                self._logger.debug("Installing {filename} from template to {dest}".format(**install))
+
+                #print(makot.render(ymlcfg=ymlcfg, vmyml=vmyml))
+                with open(install["dest"], "wb") as tplout:
+                    tplout.write(makot.render(ymlcfg=ymlcfg, vmyml=vmyml).encode("utf-8"))
 
 
-    def applyPayload(self, payload):
+    def applypayload(self, payload):
         """\
         Apply a payload package + script.
         """
