@@ -21,6 +21,9 @@ build:
     basetemplates: tpl/base
     vmdefs:
         - desktop
+        - dom0
+        - netdom
+        - diskdom
 
 # global
 global:

@@ -1,4 +1,4 @@
-"""
+"""\
 
 .. module:: vmconstruct
     :platform: Unix
@@ -56,8 +56,8 @@ def main():
 
     # Load the configuration file
     try:
-        with open(cmdline.config, "rb") as fp:
-            ymlcfg = yaml.load(fp)
+        with open(cmdline.config, "rb") as ymlcfgfp:
+            ymlcfg = yaml.load(ymlcfgfp)
     except Exception:
         print("error: cannot load configuration file {f}".format(f=cmdline.config))
         exit(1)
@@ -123,8 +123,21 @@ def main():
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:
         logger.debug("Starting build of {v}".format(v=vmdef))
-        with open(os.path.join(ymlcfg["global"]["paths"]["vmdefs"], vmdef+".yml"), "rb") as fp:
-            vmyml = yaml.load(fp)
+        with open(os.path.join(ymlcfg["global"]["paths"]["vmdefs"], vmdef+".yml"), "rb") as vmymlfp:
+            vmyml = yaml.load(vmymlfp)
+
+        try:
+            if vmyml["settings"]["pause"] == True:
+                logger.debug("Skipped build of {v} due to pause flag".format(v=vmdef))
+                continue
+        except KeyError:
+            pass
+
+        try:
+            logger.warning("TODO: as the yaml is parsed to a json compatible structure use a json schema to validate")
+            onexist = vmyml["settings"]["onexist"].lower()
+        except KeyError:
+            onexist = "error"
 
         distvol = wsroot.create(vmyml["dist"])
         relvol = distvol.create(vmyml["release"])
@@ -132,14 +145,22 @@ def main():
         try:
             vm = base.clone(vmdef)
         except FileExistsError:
-            logger.warning("TODO: make the delete behaviour configurable")
-            rebuild = True
-            if rebuild:
+            logger.warning("TODO: implement dist-upgrade, upgrade commands")
+            if onexist == "rebuild":
                 base._subvol._parent.create(vmdef).delete()
                 vm = base.clone(vmdef)
+            elif onexist in ["dist-ugrade", "upgrade"]:
+                logger.warning("TODO: this should call the update() function of the image class")
+                cmds = [
+                    ["apt-get", "update"],
+                    ["apt-get", "-y", onexist]
+                ]
+            elif onexist == "pass":
+                continue
             else:
                 raise
-        vm.install(*vmyml.get("packages", []))
+        else:
+            vm.install(*vmyml.get("packages", []))
 
     # exit
     logging.shutdown()

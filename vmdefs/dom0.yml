@@ -1,0 +1,15 @@
+# Reference
+dist: ubuntu
+release: trusty
+
+# Settings
+settings:
+    onexist: rebuild
+    pause: false
+
+packages:
+    - xen-hypervisor-4.4-amd64
+
+disks:
+
+data:

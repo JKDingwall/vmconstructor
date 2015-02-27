@@ -1,0 +1,14 @@
+# Reference
+dist: ubuntu
+release: trusty
+
+# Settings
+settings:
+    onexist: rebuild
+    pause: false
+
+#packages:
+
+disks:
+
+data:

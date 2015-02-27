@@ -1,0 +1,46 @@
+# Reference
+dist: ubuntu
+release: trusty
+
+# Settings
+settings:
+    # *indicates default
+
+    # If the vm already exists [ *error | pass | upgrade | dist-ugrade | rebuild ]
+    # error: raise an exception
+    # pass: make no changes
+    # upgrade: run apt-get update, apt-get upgrade
+    # dist-upgrade: run apt-get update, apt-get dist-upgrade
+    # rebuild: restart from scratch
+    onexist: error
+
+    # Ignore building this vm [ true | *false ]
+    pause: true
+
+# Additional packages to be installed
+packages:
+    - ubuntu-desktop
+
+# Disk configuration to finalise the system on
+disks:
+    xvda:
+       label: gpt
+       partitions:
+           1:
+               mount: /boot
+               size: 512
+               filesystem: ext3
+               label: /boot
+           2:
+               size: 32768
+               filesystem: lvm
+               vgname: systemvg
+               lvs:
+                   rootlv:
+                       size: 16384
+                       filesystem: btrfs
+                       label: /
+                   swaplv:
+                       size: 2048
+                       filesystem: swap
+data:
