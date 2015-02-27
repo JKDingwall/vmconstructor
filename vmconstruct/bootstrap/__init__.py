@@ -4,6 +4,7 @@ import abc
 import json
 import logging
 import os
+import stat
 import subprocess
 import time
 import uuid
@@ -263,6 +264,34 @@ class debootstrap(_bootstrap):
 
 class ubuntu(_image):
     chroot_bind = ["dev", "dev/pts", "proc", "sys"]
+    policydsh = """\
+#!/bin/bash
+
+# James Dingwall
+# Suppress startup of services during install to avoid conflicting
+# with build server.
+
+ALLARGS="${@}"
+
+while : ; do
+    case "${1}" in
+    -*)
+        shift
+        ;;
+    makedev)
+        exit 0
+        ;;
+    *)
+        if [ "${2}" = "start" ] || [ "${2}" = "restart" ] ; then
+            echo "info: vmconstruct suppressed action: ${ALLARGS}"
+            exit 101
+        else
+            exit 0
+        fi
+        ;;
+    esac
+done
+"""
 
     @property
     def _imagecls(self):
@@ -270,11 +299,23 @@ class ubuntu(_image):
 
 
     def _prepareChroot(self):
+        # Mounts for filesystems
         for mnt in self.chroot_bind:
             subprocess.check_call(["mount", "-o", "bind", os.path.join(os.sep, mnt), os.path.join(self._subvol.path, "origin", mnt)])
+        # Create a policy.d file to suppress service startup and +x
+        with open(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), "wb") as fp:
+            fp.write(self.policydsh.encode("utf-8"))
+        os.chmod(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
 
     def _unprepareChroot(self):
+        try:
+            # Remove policy.d file
+            os.unlink(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"))
+        except FileNotFoundError:
+            # Don't worry if the file is missing
+            pass
+        # Umounts for filesystems
         for mnt in reversed(self.chroot_bind):
             subprocess.check_call(["umount", "-l", os.path.join(self._subvol.path, "origin", mnt)])
 
@@ -291,4 +332,5 @@ class ubuntu(_image):
 
     def install(self, *args):
         self._logger.debug("Installing packages: {a}".format(a=args))
+        self._logger.warning("Support arbitrary arguments for apt-get command")
         self.execChroot(*[["apt-get", "-y", "install", x] for x in args])
