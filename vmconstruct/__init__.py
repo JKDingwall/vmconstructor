@@ -43,6 +43,8 @@ def main():
     # core options
     mainap.add_argument("-c", "--config", metavar="CONFIG FILE", help="configuration file ({d})".format(d=cfgdefs["config"]),
         action="store", dest="config", default=cfgdefs["config"])
+    mainap.add_argument("-q", "--quick", metavar="QUICK_BOOTSTRAP", help="quick bootstrap",
+        action="store_const", dest="quick", const=True, default=False)
     # logging configuration
     mainap.add_argument("-l", "--log", metavar="LOG DIRECTORY", help="path to log file ({d})".format(d=cfgdefs["log"]),
         action="store", dest="log", default=cfgdefs["log"])
@@ -127,7 +129,8 @@ def main():
                 }
                 [update.applytemplates(os.path.join(basetpl, dist, "_all", "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 [update.applytemplates(os.path.join(basetpl, dist, rel, "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-                update.update(proxy=proxy)
+                if not cmdline.quick:
+                    update.update(proxy=proxy)
 
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:
