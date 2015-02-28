@@ -120,6 +120,7 @@ def main():
                 base = bootstrap.debootstrap(relvol.create("_bootstrap"))
                 base.bootstrap(rel, archive=archive, proxy=proxy)
                 update = base.clone("_update")
+                update.install("lsb-release")
                 updvmyml = {
                     "dist": dist,
                     "release": rel
@@ -158,17 +159,17 @@ def main():
                 base._subvol._parent.create(vmdef).delete()
                 vm = base.clone(vmdef)
             elif onexist in ["dist-ugrade", "upgrade"]:
-                logger.warning("TODO: this should call the update() function of the image class")
-                cmds = [
-                    ["apt-get", "update"],
-                    ["apt-get", "-y", onexist]
-                ]
+                logger.warning("TODO: differentiated between dist-upgrade and upgrade")
+                vm = base.open(vmdef)
+                vm.update()
             elif onexist == "pass":
                 continue
             else:
                 raise
-        else:
-            vm.install(*vmyml.get("packages", []))
+
+        [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
+        vm.install(*vmyml.get("packages", []))
+        [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
 
     # exit
     logging.shutdown()

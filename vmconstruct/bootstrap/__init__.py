@@ -4,8 +4,10 @@ import abc
 import json
 import logging
 import os
+import shutil
 import stat
 import subprocess
+import tempfile
 import time
 import uuid
 from mako.exceptions import CompileException
@@ -21,6 +23,13 @@ DEFAULT_UBUNTU_ARCHIVE = "http://gb.archive.ubuntu.com/ubuntu/"
 class ImageNotReady(Exception):
     """\
     Raise if a request to clone the image is made but the image build has not completed.
+    """
+    pass
+
+
+class ImageDatedError(Exception):
+    """\
+    Raise if a child image is out of date wrt to the parent
     """
     pass
 
@@ -101,6 +110,20 @@ class _imageBase(object, metaclass=abc.ABCMeta):
         pass
 
 
+    def open(self, name):
+        """\
+        Open a previously cloned image.
+        """
+        if self.getStatus() != "complete":
+            raise ImageNotReady()
+
+        img = self._imagecls(self._subvol._parent.create(name))
+        if self._status["uuid"] == img._status["origin"]["uuid"]:
+            return(img)
+        else:
+            raise ImageDatedError()
+
+
     def clone(self, name):
         """\
         Clone this image to the given name an _image class for it.
@@ -121,6 +144,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 return(img)
             else:
                 # The existing snapshot is not derived from the current parent
+                ##raise ImageDatedError()
                 raise
 
 
@@ -216,9 +240,22 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
     def applypayload(self, payload):
         """\
-        Apply a payload package + script.
+        Apply a payload package + script.  The payload directory
+        will be copied in to the chroot, the run.sh script will
+        be executed with from the tempdir, the directory will then
+        be removed.
         """
-        pass
+        self._logger.debug("Applying payload from {p}".format(p=payload))
+        tdir = tempfile.mkdtemp(dir=os.path.join(self._subvol.path, "origin", "tmp"))
+        rsync = [
+            "rsync",
+            "-avHAX",
+            payload + "/",
+            tdir
+        ]
+        subprocess.check_call(rsync)
+        self.execChroot(["sh", "-c", "cd {tdir} && exec ./run.sh".format(tdir=os.path.join(*tdir.split(os.sep)[-2:]))])
+        shutil.rmtree(tdir)
 
 
 

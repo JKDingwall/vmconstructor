@@ -6,8 +6,11 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
+    prepayload:
+        - payloads/ubuntu/repo-ceph
 
-#packages:
+packages:
+    - ceph
 
 disks:
 
