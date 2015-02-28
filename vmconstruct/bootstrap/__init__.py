@@ -107,7 +107,22 @@ class _imageBase(object, metaclass=abc.ABCMeta):
         """\
         Finalise the image to disk volumes.
         """
-        pass
+        for (dname, dparam) in disks.items():
+            dtype = dparam.get("type", "hdd")
+            if dtype == "squash":
+                cmd = [
+                    "mksquashfs",
+                    os.path.join(self._subvol.path, "origin", *dparam["path"].split(os.sep)[1:]),
+                    os.path.join(self._subvol.path, "{dname}.squashfs".format(dname=dname)),
+                    "-comp",
+                    "xz",
+                    "-noappend"
+                ]
+                subprocess.check_call(cmd)
+            elif dtype == "hdd":
+                self._logger.warning("TODO: unimplmented hdd solidify")
+            else:
+                raise Exception("unsupported disk type")
 
 
     def open(self, name):

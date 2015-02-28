@@ -17,6 +17,9 @@ settings:
     # Ignore building this vm [ true | *false ]
     pause: true
 
+    # Additional template paths to apply (list)
+    #templates:
+
 # Additional packages to be installed
 packages:
     - ubuntu-desktop
@@ -24,6 +27,7 @@ packages:
 # Disk configuration to finalise the system on
 disks:
     xvda:
+       type: hdd
        label: gpt
        partitions:
            1:
