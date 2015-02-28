@@ -170,9 +170,12 @@ def main():
             else:
                 raise
 
+        [vm.applytemplates(tpl) for tpl in vmyml["settings"].get("templates", [])]
         [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
         vm.install(*vmyml.get("packages", []))
         [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
+        if isinstance(vmyml.get("disks", {}), dict):
+            vm.solidify(vmyml["disks"])
 
     # exit
     logging.shutdown()
