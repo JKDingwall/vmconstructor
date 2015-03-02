@@ -250,7 +250,7 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
                 #print(makot.render(ymlcfg=ymlcfg, vmyml=vmyml))
                 with open(install["dest"], "wb") as tplout:
-                    tplout.write(makot.render(ymlcfg=ymlcfg, vmyml=vmyml).encode("utf-8"))
+                    tplout.write(makot.render(ymlcfg=ymlcfg, vmyml=vmyml, rootpath=os.path.join(self._subvol.path, "origin")).encode("utf-8"))
 
 
     def applypayload(self, payload):
