@@ -19,6 +19,18 @@ build:
         ubuntu:
             - precise
             - trusty
+    # Update packages are installed during the update of the
+    # debootstrap packages.
+    updatepackages:
+        ubuntu:
+            precise:
+                - linux-image-generic
+                - lsb-release
+                - sudo
+            trusty:
+                - linux-image-generic-lts-utopic
+                - lsb-release
+                - sudo
     basetemplates:
         - /root/images-build/tpl
     vmdefs:
