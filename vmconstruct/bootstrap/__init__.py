@@ -279,6 +279,7 @@ class debootstrap(_bootstrap):
     def _imagecls(self):
         return(ubuntu)
 
+
     def bootstrap(self, release, archive=None, proxy=None):
         self._release = release
         self._imagepath = os.path.join(self._subvol.path, "origin")
@@ -287,15 +288,23 @@ class debootstrap(_bootstrap):
             archive = DEFAULT_UBUNTU_ARCHIVE
 
         # Split this to foreign / second step
-        cmd = [
+        cmdstg1 = [
             "/usr/sbin/debootstrap",
             "--verbose",
             "--variant=minbase",
             "--arch=amd64",
             "--components=main",
+            "--foreign",
             release,
             self._imagepath,
             archive
+        ]
+
+        cmdstg2 = [
+            "/usr/sbin/chroot",
+            os.path.join(self._subvol.path, "origin"),
+            "/debootstrap/debootstrap",
+            "--second-stage"
         ]
 
         env = {}
@@ -320,12 +329,14 @@ class debootstrap(_bootstrap):
         else:
             self._logger.error("")
 
-        self._logger.debug("Executing debootstrap with command: {cmd}, environment: {env}".format(cmd=cmd, env=env))
-        self.logActivity("bootstrap", { "cmd": cmd, "env": env })
+        self._logger.debug("Executing debootstrap with command: {cmd}, environment: {env}".format(cmd=cmdstg1, env=env))
+        self.logActivity("bootstrap", { "cmd": cmdstg1, "env": env })
         try:
             start = time.time()
             self.setStatus("building")
-            subprocess.check_call(cmd)
+            subprocess.check_call(cmdstg1)
+            # Additional work before packages installed here
+            subprocess.check_call(cmdstg2)
             self.setStatus("complete")
         except (KeyboardInterrupt):
             self.setStatus("interrupted")
