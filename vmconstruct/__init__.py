@@ -128,13 +128,13 @@ def main():
                 }
                 [update.applytemplates(os.path.join(basetpl, dist, "_all", "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 [update.applytemplates(os.path.join(basetpl, dist, rel, "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+                if not cmdline.quick:
+                    update.update(proxy=proxy)
                 try:
                     if isinstance(ymlcfg["build"]["updatepackages"][dist][rel], list):
                         [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist][rel]]
                 except KeyError:
                     pass
-                if not cmdline.quick:
-                    update.update(proxy=proxy)
 
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:
