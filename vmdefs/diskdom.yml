@@ -7,10 +7,15 @@ settings:
     onexist: rebuild
     pause: false
     prepayload:
+        - payloads/ubuntu/repo-bcache
         - payloads/ubuntu/repo-ceph
 
 packages:
+    - bcache-tools
     - ceph
+    - lvm2
+    - mdadm
+    - smartmontools
 
 disks:
     diskdom:

@@ -12,5 +12,8 @@ packages:
     - openvswitch-switch
 
 disks:
+    netdom:
+        type: squash
+        path: /
 
 data:

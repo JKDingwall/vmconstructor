@@ -1,4 +1,13 @@
 James Dingwall <james@dingwall.me.uk>
 DMUK
 
-My Ubuntu vm image constructor
+My Ubuntu vm image constructor.
+
+Dependencies:
+  - python3
+  - debootstrap
+  - apt-cacher-ng
+  - https://pypi.python.org/pypi/sparse_list
+    (s/xrange/range/)
+  - kpartx
+  - xfsprogs (to create xfs file systems)

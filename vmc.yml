@@ -23,15 +23,24 @@ build:
     # debootstrap packages.
     updatepackages:
         ubuntu:
+            # Introduce _all section?
+            _all:
+                - logrotate
+                - lsb-release
+                - nano
+                - openssh-server
+                - sudo
+                - vim
             precise:
+                #- aufs-tools
                 - linux-image-generic
-                - lsb-release
-                - sudo
             trusty:
+                #- aufs-tools
+                - dhcpcd5
+                - grub-xen
                 - linux-image-generic-lts-utopic
-                - lsb-release
-                - sudo
     basetemplates:
+        # A list of directories where we apply common templates from
         - /root/images-build/tpl
     vmdefs:
         - desktop

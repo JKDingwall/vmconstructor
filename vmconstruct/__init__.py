@@ -126,10 +126,18 @@ def main():
                     "dist": dist,
                     "release": rel
                 }
+                [update.applytemplates(os.path.join(basetpl, dist, "_all", "_all"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 [update.applytemplates(os.path.join(basetpl, dist, "_all", "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+                [update.applytemplates(os.path.join(basetpl, dist, rel, "_all"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 [update.applytemplates(os.path.join(basetpl, dist, rel, "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
                 if not cmdline.quick:
                     update.update(proxy=proxy)
+                try:
+                    if isinstance(ymlcfg["build"]["updatepackages"][dist]["_all"], list):
+                        [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist]["_all"]]
+                except KeyError:
+                    pass
+
                 try:
                     if isinstance(ymlcfg["build"]["updatepackages"][dist][rel], list):
                         [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist][rel]]
@@ -174,12 +182,22 @@ def main():
             else:
                 raise
 
-        [vm.applytemplates(tpl) for tpl in vmyml["settings"].get("templates", [])]
-        [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
-        vm.install(*vmyml.get("packages", []))
-        [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
+        # Template dirs from global template paths
+        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], "_all", "_all"), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], "_all", vmdef), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], vmyml["release"], "_all"), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], vmyml["release"], vmdef), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
+
+        if isinstance(vmyml["settings"].get("templates", []), list):
+            [vm.applytemplates(tpl, ymlcfg, vmyml) for tpl in vmyml["settings"].get("templates", [])]
+        if isinstance(vmyml["settings"].get("prepayload", []), list):
+            [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
+        if isinstance(vmyml.get("packages", []), list):
+            vm.install(*vmyml.get("packages", []))
+        if isinstance(vmyml["settings"].get("postpayload", []), list):
+            [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
         if isinstance(vmyml.get("disks", {}), dict):
-            vm.solidify(vmyml["disks"])
+            vm.solidify(vmyml.get("disks", {}))
 
     # exit
     logging.shutdown()

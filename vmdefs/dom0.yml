@@ -6,10 +6,21 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
+    prepayload:
+      - payloads/ubuntu/repo-bcache
+    hostname: dmuknode
 
 packages:
+    - bcache-tools
+    - lm-sensors
+    - lvm2
+    - mdadm
+    - smartmontools
     - xen-hypervisor-4.4-amd64
 
 disks:
+    dmuknode:
+        type: squash
+        path: /
 
 data:
