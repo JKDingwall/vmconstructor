@@ -1,6 +1,7 @@
 __all__ = []
 
 import abc
+import hashlib
 import json
 import logging
 import os
@@ -231,6 +232,7 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
         """\
         Find templates in tpldir and apply them to the image.
         """
+        # TODO: installation file permissions/ownership
         if not os.path.isdir(tpldir):
             self._logger.warning("{td} is not a directory, ignoring for templating".format(td=tpldir))
             return
@@ -248,9 +250,51 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
 
                 self._logger.debug("Installing {filename} from template to {dest}".format(**install))
 
-                #print(makot.render(ymlcfg=ymlcfg, vmyml=vmyml))
+                renderctx = {
+                    "ymlcfg": ymlcfg,
+                    "vmyml": vmyml,
+                    "rootpath": os.path.join(self._subvol.path, "origin")
+                }
+
+                if os.path.isfile(install["dest"]):
+                    # If there is an existing file at the location generate
+                    # a checksum for it.  This can be used by a template to
+                    # a) decide how to render content based on current source
+                    # b) validate that the default file being replaced is the
+                    #    the one template is relevant for, e.g. has upstream
+                    #    made changes the template should account for.
+                    s256 = hashlib.sha256()
+                    with open(install["dest"], "rb") as fp:
+                        while True:
+                            data = fp.read(16 * 4096)
+                            if not data:
+                                break
+                            s256.update(data)
+
+                    renderctx["sha256"] = s256.hexdigest()
+                    self._logger.debug("Existing {filename} checksum {s}".format(s=s256.hexdigest(), **install))
+                else:
+                    renderctx["sha256"] = None
+
+                try:
+                    if renderctx["sha256"] not in install["sha256"]:
+                        # TODO: customise exception type
+                        raise Exception("unacceptable sha256")
+                except KeyError:
+                    pass
+
+                rendered = makot.render(**renderctx)
+
+                try:
+                    # Create the installation path if it isn't already present
+                    insdir = os.path.join(os.sep, *install["dest"].split(os.sep)[:-1])
+                    self._logger.debug("Creating {insdir} if necessary".format(insdir=insdir))
+                    os.makedirs(insdir)
+                except FileExistsError:
+                    pass
+
                 with open(install["dest"], "wb") as tplout:
-                    tplout.write(makot.render(ymlcfg=ymlcfg, vmyml=vmyml, rootpath=os.path.join(self._subvol.path, "origin")).encode("utf-8"))
+                    tplout.write(rendered.encode("utf-8"))
 
 
     def applypayload(self, payload):

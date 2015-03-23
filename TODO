@@ -1,0 +1,7 @@
+passwd/group reuse / templates
+ramdisk to mount overlay: mkdir /.aufs ; mount /dev/xvdb /.aufs ; mount -t aufs -o noxino,sum,dirs=/.aufs=rw:/root=rr root.union /root ; exit
+pre/post payloads
+pre/post commands
+solidify - hdd
+allow templates to be delayed until after build
+don't separate payloads to pre/post instead make common and accept a phase argument
