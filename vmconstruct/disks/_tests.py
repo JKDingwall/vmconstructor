@@ -1,4 +1,5 @@
 #!/bin/bash
+# -*- coding: utf-8 -*-
 
 """:"
 if [ "$(dirname ${0})" = "." ] ; then

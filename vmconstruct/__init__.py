@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """\
 
 .. module:: vmconstruct
@@ -126,23 +127,27 @@ def main():
                     "dist": dist,
                     "release": rel
                 }
-                [update.applytemplates(os.path.join(basetpl, dist, "_all", "_all"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-                [update.applytemplates(os.path.join(basetpl, dist, "_all", "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-                [update.applytemplates(os.path.join(basetpl, dist, rel, "_all"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-                [update.applytemplates(os.path.join(basetpl, dist, rel, "_update"), ymlcfg, updvmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-                if not cmdline.quick:
-                    update.update(proxy=proxy)
-                try:
-                    if isinstance(ymlcfg["build"]["updatepackages"][dist]["_all"], list):
-                        [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist]["_all"]]
-                except KeyError:
-                    pass
 
-                try:
-                    if isinstance(ymlcfg["build"]["updatepackages"][dist][rel], list):
-                        [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist][rel]]
-                except KeyError:
-                    pass
+                tpldirs = []
+                tpldirs.extend([os.path.join(basetpl, dist, "_all", "_all") for basetpl in ymlcfg["build"]["basetemplates"]])
+                tpldirs.extend([os.path.join(basetpl, dist, "_all", "_update") for basetpl in ymlcfg["build"]["basetemplates"]])
+                tpldirs.extend([os.path.join(basetpl, dist, rel, "_all") for basetpl in ymlcfg["build"]["basetemplates"]])
+                tpldirs.extend([os.path.join(basetpl, dist, rel, "_update") for basetpl in ymlcfg["build"]["basetemplates"]])
+
+                with update.applytemplates(ymlcfg, updvmyml, *tpldirs):
+                    if not cmdline.quick:
+                        update.update(proxy=proxy)
+                    try:
+                        if isinstance(ymlcfg["build"]["updatepackages"][dist]["_all"], list):
+                            [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist]["_all"]]
+                    except KeyError:
+                        pass
+
+                    try:
+                        if isinstance(ymlcfg["build"]["updatepackages"][dist][rel], list):
+                            [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist][rel]]
+                    except KeyError:
+                        pass
 
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:
@@ -182,20 +187,23 @@ def main():
             else:
                 raise
 
-        # Template dirs from global template paths
-        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], "_all", "_all"), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], "_all", vmdef), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], vmyml["release"], "_all"), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-        [vm.applytemplates(os.path.join(basetpl, vmyml["dist"], vmyml["release"], vmdef), ymlcfg, vmyml) for basetpl in ymlcfg["build"]["basetemplates"]]
-
+        # Template dirs from global template paths and vm specific
+        tpldirs = []
+        tpldirs.extend([os.path.join(basetpl, vmyml["dist"], "_all", "_all") for basetpl in ymlcfg["build"]["basetemplates"]])
+        tpldirs.extend([os.path.join(basetpl, vmyml["dist"], "_all", vmdef) for basetpl in ymlcfg["build"]["basetemplates"]])
+        tpldirs.extend([os.path.join(basetpl, vmyml["dist"], vmyml["release"], "_all") for basetpl in ymlcfg["build"]["basetemplates"]])
+        tpldirs.extend([os.path.join(basetpl, vmyml["dist"], vmyml["release"], vmdef)for basetpl in ymlcfg["build"]["basetemplates"]])
         if isinstance(vmyml["settings"].get("templates", []), list):
-            [vm.applytemplates(tpl, ymlcfg, vmyml) for tpl in vmyml["settings"].get("templates", [])]
-        if isinstance(vmyml["settings"].get("prepayload", []), list):
-            [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
-        if isinstance(vmyml.get("packages", []), list):
-            vm.install(*vmyml.get("packages", []))
-        if isinstance(vmyml["settings"].get("postpayload", []), list):
-            [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
+            tpldirs.extend(vmyml["settings"].get("templates", []))
+
+        with vm.applytemplates(ymlcfg, vmyml, *tpldirs):
+            if isinstance(vmyml["settings"].get("prepayload", []), list):
+                [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
+            if isinstance(vmyml.get("packages", []), list):
+                vm.install(*vmyml.get("packages", []))
+            if isinstance(vmyml["settings"].get("postpayload", []), list):
+                [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
+
         if isinstance(vmyml.get("disks", {}), dict):
             vm.solidify(vmyml.get("disks", {}))
 

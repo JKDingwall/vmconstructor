@@ -1,8 +1,9 @@
 <%def name="install(i)"><%
     i["filename"] = "/etc/default/grub.d/xen.cfg"
-#    i["sha256"] = [
-#        "2d992650d4f0ee381995119b6b80d31bef20978232b3786fc71e00a2cf53987c"
-#    ]
+    i["phase"] = ["POST"]
+    i["sha256"] = [
+        "80b6645f2e2e5b03a24749e72141073fd73a1c1b5ee7b23c9c4fb0b60cb830fc"
+    ]
 %></%def>\
 #
 # Uncomment the following variable and set to 0 or 1 to avoid warning.

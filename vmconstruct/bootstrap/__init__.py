@@ -1,7 +1,7 @@
+# -*- coding: utf-8 -*-
 __all__ = []
 
 import abc
-import hashlib
 import json
 import logging
 import os
@@ -11,29 +11,15 @@ import subprocess
 import tempfile
 import time
 import uuid
-from mako.exceptions import CompileException
-from mako.template import Template
+
+from .templates import applydirs
+from ..exceptions import *
 
 # TODO:
 #  - make the architecture a parameter
 #  - add a reuse/force build parameter
 
 DEFAULT_UBUNTU_ARCHIVE = "http://gb.archive.ubuntu.com/ubuntu/"
-
-
-class ImageNotReady(Exception):
-    """\
-    Raise if a request to clone the image is made but the image build has not completed.
-    """
-    pass
-
-
-class ImageDatedError(Exception):
-    """\
-    Raise if a child image is out of date wrt to the parent
-    """
-    pass
-
 
 
 class _imageBase(object, metaclass=abc.ABCMeta):
@@ -131,13 +117,13 @@ class _imageBase(object, metaclass=abc.ABCMeta):
         Open a previously cloned image.
         """
         if self.getStatus() != "complete":
-            raise ImageNotReady()
+            raise VMCImageNotReadyError()
 
         img = self._imagecls(self._subvol._parent.create(name))
         if self._status["uuid"] == img._status["origin"]["uuid"]:
             return(img)
         else:
-            raise ImageDatedError()
+            raise VMCImageDatedError()
 
 
     def clone(self, name):
@@ -145,7 +131,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
         Clone this image to the given name an _image class for it.
         """
         if self.getStatus() != "complete":
-            raise ImageNotReady()
+            raise VMCImageNotReadyError()
 
         try:
             # Try to snapshot this volume to the given name
@@ -160,7 +146,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 return(img)
             else:
                 # The existing snapshot is not derived from the current parent
-                ##raise ImageDatedError()
+                ##raise VMCImageDatedError()
                 raise
 
 
@@ -228,73 +214,11 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
             self._unprepareChroot()
 
 
-    def applytemplates(self, tpldir, ymlcfg, vmyml):
+    def applytemplates(self, ymlcfg, vmyml, *dirs):
         """\
         Find templates in tpldir and apply them to the image.
         """
-        # TODO: installation file permissions/ownership
-        if not os.path.isdir(tpldir):
-            self._logger.warning("{td} is not a directory, ignoring for templating".format(td=tpldir))
-            return
-
-        self._logger.debug("Applying templates from {td}".format(td=tpldir))
-
-        for (root, dirs, files) in os.walk(tpldir):
-            for tplfile in [file for file in files if file.endswith(".tpl")]:
-                with open(os.path.join(root, tplfile), "rb") as tplfp:
-                    makot = Template(tplfp.read(), strict_undefined=True)
-
-                install = {}
-                makot.get_def("install").render(i=install)
-                install["dest"] = os.path.join(self._subvol.path, "origin", *install["filename"].split(os.sep))
-
-                self._logger.debug("Installing {filename} from template to {dest}".format(**install))
-
-                renderctx = {
-                    "ymlcfg": ymlcfg,
-                    "vmyml": vmyml,
-                    "rootpath": os.path.join(self._subvol.path, "origin")
-                }
-
-                if os.path.isfile(install["dest"]):
-                    # If there is an existing file at the location generate
-                    # a checksum for it.  This can be used by a template to
-                    # a) decide how to render content based on current source
-                    # b) validate that the default file being replaced is the
-                    #    the one template is relevant for, e.g. has upstream
-                    #    made changes the template should account for.
-                    s256 = hashlib.sha256()
-                    with open(install["dest"], "rb") as fp:
-                        while True:
-                            data = fp.read(16 * 4096)
-                            if not data:
-                                break
-                            s256.update(data)
-
-                    renderctx["sha256"] = s256.hexdigest()
-                    self._logger.debug("Existing {filename} checksum {s}".format(s=s256.hexdigest(), **install))
-                else:
-                    renderctx["sha256"] = None
-
-                try:
-                    if renderctx["sha256"] not in install["sha256"]:
-                        # TODO: customise exception type
-                        raise Exception("unacceptable sha256")
-                except KeyError:
-                    pass
-
-                rendered = makot.render(**renderctx)
-
-                try:
-                    # Create the installation path if it isn't already present
-                    insdir = os.path.join(os.sep, *install["dest"].split(os.sep)[:-1])
-                    self._logger.debug("Creating {insdir} if necessary".format(insdir=insdir))
-                    os.makedirs(insdir)
-                except FileExistsError:
-                    pass
-
-                with open(install["dest"], "wb") as tplout:
-                    tplout.write(rendered.encode("utf-8"))
+        return(applydirs(self, ymlcfg, vmyml, *dirs).apply())
 
 
     def applypayload(self, payload):
@@ -440,9 +364,13 @@ done
         with open(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), "wb") as fp:
             fp.write(self.policydsh.encode("utf-8"))
         os.chmod(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        # /proc/mtab
+        shutil.copyfile("/etc/mtab", os.path.join(self._subvol.path, "origin", "etc", "mtab"))
 
 
     def _unprepareChroot(self):
+        # /proc/mtab
+        os.unlink(os.path.join(self._subvol.path, "origin", "etc", "mtab"))
         try:
             # Remove policy.d file
             os.unlink(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"))

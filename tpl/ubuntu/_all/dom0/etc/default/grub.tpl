@@ -1,5 +1,6 @@
 <%def name="install(i)"><%
     i["filename"] = "/etc/default/grub"
+    i["phase"] = ["POST"]
     i["sha256"] = [
         "2d992650d4f0ee381995119b6b80d31bef20978232b3786fc71e00a2cf53987c"
     ]
