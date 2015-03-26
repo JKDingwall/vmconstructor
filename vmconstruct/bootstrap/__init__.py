@@ -2,6 +2,7 @@
 __all__ = []
 
 import abc
+import copy
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ import uuid
 
 from .templates import applydirs
 from ..exceptions import *
+from ..disks import disks
 
 # TODO:
 #  - make the architecture a parameter
@@ -90,11 +92,11 @@ class _imageBase(object, metaclass=abc.ABCMeta):
           self._saveStatus()
 
 
-    def solidify(self, disks):
+    def solidify(self, disksyml):
         """\
         Finalise the image to disk volumes.
         """
-        for (dname, dparam) in disks.items():
+        for (dname, dparam) in disksyml.items():
             dtype = dparam.get("type", "hdd")
             if dtype == "squash":
                 cmd = [
@@ -108,6 +110,16 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 subprocess.check_call(cmd)
             elif dtype == "hdd":
                 self._logger.warning("TODO: unimplmented hdd solidify")
+                dparam = copy.copy(dparam)
+                dparam.pop("type")
+                d = disks(self._subvol.create(dname), dparam)
+                d.format()
+                try:
+                    mntpoint = d.mount()
+                    cmd = ["rsync", "-avHAX", "--delete", "--progress", os.path.join(self._subvol.path, "origin")+"/", mntpoint+"/"]
+                    print(cmd)
+                finally:
+                    d.umount()
             else:
                 raise Exception("unsupported disk type")
 

@@ -15,7 +15,7 @@ GPT_SECTOR_SIZE = 512		# size for calculation when generating a guid partition t
 GPT_PTE_SIZE = 128		# size of a gpt partition entry (128 is usual)
 GPT_PTE_ENTS = 128		# number of entries in the gpt pte array (128 is usual)
 
-"""
+"""\
 TODO:
 
 correctly generate chs values in mbr for small disks
@@ -49,7 +49,7 @@ class partitionType(object):
 
     @classmethod
     def resolveGPTEntry(self, fscode):
-        """
+        """\
         Return a uuid object for use in the partition table.
         """
 
@@ -71,7 +71,7 @@ class partitionType(object):
         if fscode in self._filesystem2fscode:
             return(self.resolveGPTEntry(self._filesystem2fscode[fscode]))
 
-        raise Exception("Unknown Code")
+        raise Exception("Unknown Code: {fscode}".format(fscode=fscode))
 
 
     @classmethod
@@ -91,7 +91,7 @@ class partitionType(object):
         if fscode in self._filesystem2fscode:
             return(self.resolveMBRCode(self._filesystem2fscode[fscode]))
 
-        raise Exception("Unknown Code")
+        raise Exception("Unknown Code: {fscode}".format(fscode=fscode))
 
 
 # Well know guid partition table pte guids (http://en.wikipedia.org/wiki/GUID_Partition_Table)
@@ -266,7 +266,7 @@ partitionType(0xfd00, "A19D880F-05FC-4D3B-A006-743F0F84911E", "Linux",       "li
 
 
 class InvalidPartitionNumber(Exception):
-    """
+    """\
     Raise if the requested partition index is out of range.
     """
     pass
@@ -274,7 +274,7 @@ class InvalidPartitionNumber(Exception):
 
 
 class PartitionTooLarge(Exception):
-    """
+    """\
     Raise if the requested partition size is beyond the capabilities of the
     partition table type.
     """
@@ -290,7 +290,7 @@ class _partition(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _init(self):
-        """
+        """\
         Initialise an empty partition table strucure.
         """
         pass
@@ -298,7 +298,7 @@ class _partition(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
-        """
+        """\
         Add a partition table to the structure.
         """
         pass
@@ -306,7 +306,7 @@ class _partition(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def diskSize(self):
-        """
+        """\
         Based on the current partition table propose a disk size that would contain
         all the partitions.
         """
@@ -315,14 +315,14 @@ class _partition(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def write(self, file):
-        """
+        """\
         Write the partition table to the file in the appropriate place.
         """
         pass
 
 
     def makeDisk(self, file):
-        """
+        """\
         Create a suitably sized sparse file and then write the partition table.
         """
         with open(file, "ab") as fp:
@@ -355,7 +355,7 @@ class mbr(_partition):
 
 
     def addPartition(self, index, sizemb, fscode, name=None, flags=[]):
-        """
+        """\
         Register a partition entry for the partition table
         """
         if index not in range(1, 5):
@@ -386,7 +386,7 @@ class mbr(_partition):
 
 
     def diskSize(self):
-        """
+        """\
         Iterate over the partition table and calculate the disk size.
         """
         # The 0-2047s = 1Mb
@@ -398,7 +398,7 @@ class mbr(_partition):
 
 
     def _buildPartitions(self):
-        """
+        """\
         Refresh the partition table sizes.  We deal with 512 byte sectors but align for 4k sectors.
         """
         # Where the first partition will start
@@ -490,7 +490,7 @@ class gpt(_partition):
 
 
     def _pteSectors(self):
-        """
+        """\
         Calculate the number of sectors required to hold the pte array.
         """
         GPT_PTE_RESERVATION = 16384	# 16384 is the minimum value, GPT_PTE_SIZE * GPT_PTE_ENTS default values
@@ -502,7 +502,7 @@ class gpt(_partition):
 
 
     def _lebytes(self, val, len=4):
-        """
+        """\
         Calculate the given value as a little endian ordered byte array of the requested size
         """
         bytes = []
@@ -513,7 +513,7 @@ class gpt(_partition):
 
 
     def _updatePts(self):
-        """
+        """\
         Recalculate secondary header location in primary then make a copy of the primary gpt header
         and update necessary fields.
         """

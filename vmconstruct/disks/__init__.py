@@ -17,6 +17,7 @@ from . import partition
 class disks(object):
     def __init__(self, subvol, disksyml):
         self._logger = logging.getLogger(self.__class__.__module__+"."+self.__class__.__name__)
+        self._subvol = subvol
         self._disks = {}
 
         for (k, v) in disksyml.items():
@@ -24,7 +25,7 @@ class disks(object):
 
 
     def format(self):
-        """
+        """\
         Format all disks.
         """
         for (k, v) in self._disks.items():
@@ -32,15 +33,18 @@ class disks(object):
 
 
     def mount(self):
+        """\
+        Mount all disks and return the / of the mount path.
         """
-        Mount all disks.
-        """
+        self._logger.error("TODO: use context manager for mounting")
         for (mount, disk) in sorted([(m, v) for (k, v) in self._disks.items() for m in v.mounts]):
             disk.mount(mount)
 
+        return(os.path.join(self._subvol.path, "mnt"))
+
 
     def umount(self):
-        """
+        """\
         Umount all disks.
         """
         for (mount, disk) in reversed(sorted([(m, v) for (k, v) in self._disks.items() for m in v.mounts])):
@@ -50,7 +54,7 @@ class disks(object):
 
 class disk(object):
     class _losetup(SparseList):
-        """
+        """\
         Manage the loopback preparation of the disk.
         """
         def __init__(self, id, _disk):
@@ -65,10 +69,12 @@ class disk(object):
             self._unmap = self.losetup()
 
 
-        def __exit__(self, exc_type, exc_value, traceback):
+        def __exit__(self, *exc_info):
             self._logger.debug("__exit__ context manager")
             if self._unmap:
                 self.ulosetup()
+
+            return(False)
 
 
         def clear(self):
@@ -77,7 +83,7 @@ class disk(object):
 
 
         def losetup(self):
-            """
+            """\
             Execute losetup to map the partitions in the image file to devices.
             """
             if not len(self):
@@ -94,7 +100,7 @@ class disk(object):
 
 
         def ulosetup(self):
-            """
+            """\
             Unmap mapped partitions.
             """
             if len(self):
@@ -161,27 +167,31 @@ class disk(object):
 
 
     def format(self):
-        """
+        """\
         Format the partitions for the requested filesystem.
         """
         with self._lo:
+            self._logger.error("TODO: support aribtrary fs args")
             for (k, (mapper, loop)) in self._lo.elements.items():
                 (size, filesystem, mount, label) = self._parts[k]
-                cmd = ["mkfs", "-t", filesystem, mapper]
+                if filesystem == "esp":
+                    cmd = ["mkfs", "-t", "vfat", "-n", "EFI_SYSTEM", "-F", "32", mapper]
+                else:
+                    cmd = ["mkfs", "-t", filesystem, mapper]
                 self._logger.debug("Formatting disk {size}Mb partition {k}: {cmd}".format(size=size, k=k, cmd=cmd))
                 print(subprocess.check_output(cmd).decode(encoding="UTF-8"))
 
 
     @property
     def mounts(self):
-        """
+        """\
         Return the mount points defined on this disk.
         """
         return(sorted([mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items()]))
 
 
     def mount(self, mounts=None):
-        """
+        """\
         Mount the filesytems at mnt under the disk subvolume
         """
 

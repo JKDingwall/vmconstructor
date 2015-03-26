@@ -16,4 +16,24 @@ disks:
         type: squash
         path: /
 
+    boot.img:
+        type: hdd
+        xvda:
+            label: gpt
+            partitions:
+                1:
+                    mount: /boot/efi
+                    size: 512
+                    filesystem: esp
+                    label: EFI_SYSTEM
+                2:
+                    mount: /boot
+                    size: 512
+                    filesystem: btrfs
+                    label: netdom /boot
+                3:
+                    mount: /
+                    size: 16384
+                    filesystem: btrfs
+                    label: netdom /
 data:
