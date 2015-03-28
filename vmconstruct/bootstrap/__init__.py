@@ -9,10 +9,10 @@ import os
 import shutil
 import stat
 import subprocess
-import tempfile
 import time
 import uuid
 
+from .payloads import applyplds
 from .templates import applydirs
 from ..exceptions import *
 from ..disks import disks
@@ -110,14 +110,20 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 subprocess.check_call(cmd)
             elif dtype == "hdd":
                 self._logger.warning("TODO: unimplmented hdd solidify")
+
+                # Create a shallow copy of the disk definition to play with
                 dparam = copy.copy(dparam)
                 dparam.pop("type")
+                blpkg = dparam.pop("bootloader", None)
+
                 d = disks(self._subvol.create(dname), dparam)
                 d.format()
                 try:
                     mntpoint = d.mount()
                     cmd = ["rsync", "-avHAX", "--delete", "--progress", os.path.join(self._subvol.path, "origin")+"/", mntpoint+"/"]
-                    print(cmd)
+                    print(subprocess.check_call(cmd))
+                    if blpkg is not None:
+                        self.install(blpkg, chrootpath=mntpoint)
                 finally:
                     d.umount()
             else:
@@ -176,12 +182,12 @@ class _bootstrap(_imageBase, metaclass=abc.ABCMeta):
 
 class _image(_imageBase, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def _prepareChroot(self):
+    def _prepareChroot(self, chrootpath=None):
         pass
 
 
     @abc.abstractmethod
-    def _unprepareChroot(self):
+    def _unprepareChroot(self, chrootpath=None):
         pass
 
 
@@ -210,20 +216,21 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
         self._saveStatus()
 
 
-    def execChroot(self, *args):
+    def execChroot(self, *args, chrootpath=None):
         """\
         Execute the array of commands in the chroot environment.
         """
+        if chrootpath is None:
+            chrootpath = os.path.join(self._subvol.path, "origin")
+
         try:
-            self._prepareChroot()
+            self._prepareChroot(chrootpath=chrootpath)
             for cmd in args:
-                self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=os.path.join(self._subvol.path, "origin"), cmd=cmd))
+                self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=chrootpath, cmd=cmd))
                 self.logActivity("chroot", cmd)
-                subprocess.check_call(["chroot", os.path.join(self._subvol.path, "origin")] + cmd)
-        except Exception:
-            raise
+                subprocess.check_call(["chroot", chrootpath] + cmd)
         finally:
-            self._unprepareChroot()
+            self._unprepareChroot(chrootpath=chrootpath)
 
 
     def applytemplates(self, ymlcfg, vmyml, *dirs):
@@ -233,24 +240,11 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
         return(applydirs(self, ymlcfg, vmyml, *dirs).apply())
 
 
-    def applypayload(self, payload):
+    def applypayloads(self, *payloads, chrootpath=None):
         """\
-        Apply a payload package + script.  The payload directory
-        will be copied in to the chroot, the run.sh script will
-        be executed with from the tempdir, the directory will then
-        be removed.
+        Apply payload scripts to the image.
         """
-        self._logger.debug("Applying payload from {p}".format(p=payload))
-        tdir = tempfile.mkdtemp(dir=os.path.join(self._subvol.path, "origin", "tmp"))
-        rsync = [
-            "rsync",
-            "-avHAX",
-            payload + "/",
-            tdir
-        ]
-        subprocess.check_call(rsync)
-        self.execChroot(["sh", "-c", "cd {tdir} && exec ./run.sh".format(tdir=os.path.join(*tdir.split(os.sep)[-2:]))])
-        shutil.rmtree(tdir)
+        return(applyplds(self, *payloads, chrootpath=chrootpath).apply())
 
 
 
@@ -333,7 +327,7 @@ class debootstrap(_bootstrap):
 
 
 class ubuntu(_image):
-    chroot_bind = ["dev", "dev/pts", "proc", "sys"]
+    chroot_bind = ["dev", "dev/pts", "proc", "run", "sys"]
     policydsh = """\
 #!/bin/bash
 
@@ -368,30 +362,36 @@ done
         return(ubuntu)
 
 
-    def _prepareChroot(self):
+    def _prepareChroot(self, chrootpath=None):
+        if chrootpath is None:
+            chrootpath = os.path.join(self._subvol.path, "origin")
+
         # Mounts for filesystems
         for mnt in self.chroot_bind:
-            subprocess.check_call(["mount", "-o", "bind", os.path.join(os.sep, mnt), os.path.join(self._subvol.path, "origin", mnt)])
+            subprocess.check_call(["mount", "-o", "bind", os.path.join(os.sep, mnt), os.path.join(chrootpath, mnt)])
         # Create a policy.d file to suppress service startup and +x
-        with open(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), "wb") as fp:
+        with open(os.path.join(chrootpath, "usr", "sbin", "policy-rc.d"), "wb") as fp:
             fp.write(self.policydsh.encode("utf-8"))
-        os.chmod(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        os.chmod(os.path.join(chrootpath, "usr", "sbin", "policy-rc.d"), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
         # /proc/mtab
-        shutil.copyfile("/etc/mtab", os.path.join(self._subvol.path, "origin", "etc", "mtab"))
+        shutil.copyfile("/etc/mtab", os.path.join(chrootpath, "etc", "mtab"))
 
 
-    def _unprepareChroot(self):
+    def _unprepareChroot(self, chrootpath=None):
+        if chrootpath is None:
+            chrootpath = os.path.join(self._subvol.path, "origin")
+
         # /proc/mtab
-        os.unlink(os.path.join(self._subvol.path, "origin", "etc", "mtab"))
+        os.unlink(os.path.join(chrootpath, "etc", "mtab"))
         try:
             # Remove policy.d file
-            os.unlink(os.path.join(self._subvol.path, "origin", "usr", "sbin", "policy-rc.d"))
+            os.unlink(os.path.join(chrootpath, "usr", "sbin", "policy-rc.d"))
         except FileNotFoundError:
             # Don't worry if the file is missing
             pass
         # Umounts for filesystems
         for mnt in reversed(self.chroot_bind):
-            subprocess.check_call(["umount", "-l", os.path.join(self._subvol.path, "origin", mnt)])
+            subprocess.check_call(["umount", "-l", os.path.join(chrootpath, mnt)])
 
 
     def update(self, proxy=None):
@@ -410,7 +410,7 @@ done
         self.setStatus("complete")
 
 
-    def install(self, *args, proxy=None):
+    def install(self, *args, proxy=None, chrootpath=None):
         self._logger.debug("Installing packages: {a}".format(a=args))
         self._logger.warning("Support arbitrary arguments for apt-get command")
-        self.execChroot(*[["apt-get", "-y", "install", x] for x in args])
+        self.execChroot(*[["apt-get", "-y", "install", x] for x in args], chrootpath=chrootpath)

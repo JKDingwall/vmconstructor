@@ -3,7 +3,7 @@
 %></%def>\
 <%
     try:
-        hostname = vmyml["settings"].get("hostname", "ubuntu")
+        hostname = vmyml["data"].get("hostname", "ubuntu")
     except KeyError:
         hostname = "ubuntu"
 %>\

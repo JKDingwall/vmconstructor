@@ -25,12 +25,17 @@ build:
         ubuntu:
             # Introduce _all section?
             _all:
+                - btrfs-tools
+                - gdisk
+                - less
                 - logrotate
                 - lsb-release
                 - nano
                 - openssh-server
+                - screen
                 - sudo
                 - vim
+                - xfsprogs
             precise:
                 #- aufs-tools
                 - linux-image-generic

@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """\
-.. module:: vmconstruct.bootstrap.template
+.. module:: vmconstruct.bootstrap.templates
     :platform: Unix
     :synopsis: vmconstruct template manager
 
-.. moduleauthor:: James Dingwall <james.dingwall@zynstra.com>
+.. moduleauthor:: James Dingwall <james@dingwall.me.uk>
 
-This is a program to manage the virtual machine state on the HAP.
+This is a module to apply templates to a chroot environment.
 """
 
 import contextlib
@@ -99,7 +99,7 @@ class apply(object):
             self._logger.warning("{td} is not a directory, ignoring for templating".format(td=self._tplpath))
             return
 
-        self._logger.debug("Applying templates from {td}".format(td=self._tplpath))
+        self._logger.debug("Applying templates for phase {p}".format(p=phase))
 
         for (root, dirs, files) in os.walk(self._tplpath):
             for tplfile in [file for file in files if file.endswith(".tpl")]:
@@ -113,7 +113,7 @@ class apply(object):
                 try:
                     # Check the template is relevant to this phase of the build
                     if phase not in install["phase"]:
-                        return
+                        continue
                 except KeyError:
                     pass
 
@@ -156,7 +156,7 @@ class apply(object):
                 try:
                     rendered = makot.render(**renderctx)
                 except VMCPhaseError:
-                    return
+                    continue
 
                 try:
                     # Create the installation path if it isn't already present
@@ -164,7 +164,8 @@ class apply(object):
                     self._logger.debug("Creating {insdir} if necessary".format(insdir=insdir))
                     os.makedirs(insdir)
                 except FileExistsError:
-                    pass
+                    if not os.path.isdir(insdir):
+                        raise
 
                 with open(install["dest"], "wb") as tplout:
                     tplout.write(rendered.encode("utf-8"))

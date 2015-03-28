@@ -6,9 +6,8 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
-    prepayload:
+    payloads:
       - payloads/ubuntu/repo-bcache
-    hostname: dmuknode
 
 packages:
     - bcache-tools
@@ -24,3 +23,4 @@ disks:
         path: /
 
 data:
+    hostname: dmuknode

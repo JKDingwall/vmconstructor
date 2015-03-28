@@ -6,7 +6,7 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
-    prepayload:
+    payloads:
         - payloads/ubuntu/repo-bcache
         - payloads/ubuntu/repo-ceph
 
@@ -23,3 +23,4 @@ disks:
         path: /
 
 data:
+    hostname: dmukdd

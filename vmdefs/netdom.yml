@@ -15,9 +15,10 @@ disks:
     netdom:
         type: squash
         path: /
-
     boot.img:
         type: hdd
+        bootloader: grub-efi
+#        bootloader-payload: /root/image-builder/payloads/ubuntu/grub-efi-setup
         xvda:
             label: gpt
             partitions:
@@ -37,3 +38,4 @@ disks:
                     filesystem: btrfs
                     label: netdom /
 data:
+    hostname: dmuknd

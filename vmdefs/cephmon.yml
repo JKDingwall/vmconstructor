@@ -6,7 +6,7 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
-    prepayload:
+    payloads:
         - payloads/ubuntu/repo-ceph
 
 packages:

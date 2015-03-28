@@ -196,13 +196,9 @@ def main():
         if isinstance(vmyml["settings"].get("templates", []), list):
             tpldirs.extend(vmyml["settings"].get("templates", []))
 
-        with vm.applytemplates(ymlcfg, vmyml, *tpldirs):
-            if isinstance(vmyml["settings"].get("prepayload", []), list):
-                [vm.applypayload(pld) for pld in vmyml["settings"].get("prepayload", [])]
+        with vm.applytemplates(ymlcfg, vmyml, *tpldirs), vm.applypayloads(*vmyml["settings"].get("payloads", [])):
             if isinstance(vmyml.get("packages", []), list):
                 vm.install(*vmyml.get("packages", []))
-            if isinstance(vmyml["settings"].get("postpayload", []), list):
-                [vm.applypayload(pld) for pld in vmyml["settings"].get("postpayload", [])]
 
         if isinstance(vmyml.get("disks", {}), dict):
             vm.solidify(vmyml.get("disks", {}))
