@@ -13,6 +13,7 @@ import contextlib
 import hashlib
 import logging
 import os
+import stat
 from mako.exceptions import CompileException
 from mako.template import Template
 
@@ -94,7 +95,7 @@ class apply(object):
         """\
         Apply the templates in "phase" by searching in tplpath.
         """
-        # TODO: installation file permissions/ownership
+        # TODO: installation file ownership
         if not os.path.isdir(self._tplpath):
             self._logger.warning("{td} is not a directory, ignoring for templating".format(td=self._tplpath))
             return
@@ -109,6 +110,7 @@ class apply(object):
                 install = {}
                 makot.get_def("install").render(i=install)
                 install["dest"] = os.path.join(self._image.path, "origin", *install["filename"].split(os.sep))
+                install["mode"] = int(install.get("mode", "0644"), 8)
 
                 try:
                     # Check the template is relevant to this phase of the build
@@ -147,16 +149,26 @@ class apply(object):
                     renderctx["sha256"] = None
 
                 try:
-                    if renderctx["sha256"] not in install["sha256"]:
-                        # TODO: customise exception type
-                        raise VMCTemplateChecksumError("unacceptable sha256")
-                except KeyError:
-                    pass
-
-                try:
                     rendered = makot.render(**renderctx)
                 except VMCPhaseError:
                     continue
+
+                try:
+                    # For some files we may be interested in the old
+                    # content to ensure that our template replaces
+                    # it with something compatible.
+                    if renderctx["sha256"] not in install["sha256"]:
+                        # The rendered file is not acceptable, check if
+                        # we already applied this template by examinging
+                        # the rendered digest before error.
+                        r256 = hashlib.sha256()
+                        r256.update(rendered.encode("utf-8"))
+                        if renderctx["sha256"] == r256.hexdigest():
+                            self._logger.warning("Template was already applied")
+                        else:
+                            raise VMCTemplateChecksumError("unacceptable sha256")
+                except KeyError:
+                    pass
 
                 try:
                     # Create the installation path if it isn't already present
@@ -169,3 +181,9 @@ class apply(object):
 
                 with open(install["dest"], "wb") as tplout:
                     tplout.write(rendered.encode("utf-8"))
+
+                dstat = os.stat(install["dest"])
+                dmode = stat.S_IMODE(dstat.st_mode)
+                if dmode != install["mode"]:
+                    self._logger.debug("chmod {mode} {dest_oct}".format(dest_oct=oct(install["mode"]), **install))
+                    os.chmod(install["dest"], install["mode"])

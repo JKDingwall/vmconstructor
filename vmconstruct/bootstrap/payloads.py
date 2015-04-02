@@ -54,6 +54,7 @@ class apply(object):
     This class implements a context manager which will apply the
     pre script if it exists on entry, and the post script on exit.
     """
+    # TODO: test the payload path exists
     def __init__(self, image, payload, chrootpath):
         """\
         The constructor.

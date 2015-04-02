@@ -42,7 +42,6 @@ build:
             trusty:
                 #- aufs-tools
                 - dhcpcd5
-                - grub-xen
                 - linux-image-generic-lts-utopic
     basetemplates:
         # A list of directories where we apply common templates from

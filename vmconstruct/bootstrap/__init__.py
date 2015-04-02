@@ -114,7 +114,10 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 # Create a shallow copy of the disk definition to play with
                 dparam = copy.copy(dparam)
                 dparam.pop("type")
-                blpkg = dparam.pop("bootloader", None)
+
+                # We support payloads during solidify to cover finalisation
+                # of bootloader installations etc.
+                payloads = dparam.pop("payloads", [])
 
                 d = disks(self._subvol.create(dname), dparam)
                 d.format()
@@ -122,8 +125,7 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                     mntpoint = d.mount()
                     cmd = ["rsync", "-avHAX", "--delete", "--progress", os.path.join(self._subvol.path, "origin")+"/", mntpoint+"/"]
                     print(subprocess.check_call(cmd))
-                    if blpkg is not None:
-                        self.install(blpkg, chrootpath=mntpoint)
+                    with self.applypayloads(*payloads, chrootpath=mntpoint): pass
                 finally:
                     d.umount()
             else:

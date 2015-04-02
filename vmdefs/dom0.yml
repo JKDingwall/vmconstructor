@@ -11,6 +11,7 @@ settings:
 
 packages:
     - bcache-tools
+    - grub-efi
     - lm-sensors
     - lvm2
     - mdadm
@@ -18,9 +19,40 @@ packages:
     - xen-hypervisor-4.4-amd64
 
 disks:
-    dmuknode:
+    dmukd0:
         type: squash
         path: /
+    hddimg:
+        type: hdd
+        #payloads: /root/image-builder/payloads/ubuntu/grub-efi-setup
+        xvda:
+            label: gpt
+            partitions:
+                1:
+                    mount: /boot/efi
+                    size: 512
+                    filesystem: esp
+                    label: EFI_SYSTEM
+                2:
+                    mount: /boot
+                    size: 512
+                    filesystem: btrfs
+                    label: dmukd0 /boot
+        xvdb:
+            label: gpt
+            partitions:
+                1:
+                    mount: /
+                    size: 16384
+                    filesystem: btrfs
+                    label: dmukd0 /
+        xvdc:
+            label: gpt
+            partitions:
+                1:
+                    size: 2048
+                    filesystem: btrfs
+                    label: dmukd0 config
 
 data:
-    hostname: dmuknode
+    hostname: dmukd0

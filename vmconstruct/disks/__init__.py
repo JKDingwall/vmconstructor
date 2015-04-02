@@ -176,6 +176,8 @@ class disk(object):
                 (size, filesystem, mount, label) = self._parts[k]
                 if filesystem == "esp":
                     cmd = ["mkfs", "-t", "vfat", "-n", "EFI_SYSTEM", "-F", "32", mapper]
+                elif filesystem == "swap":
+                    cmd = ["mkswap", "-f", mapper]
                 else:
                     cmd = ["mkfs", "-t", filesystem, mapper]
                 self._logger.debug("Formatting disk {size}Mb partition {k}: {cmd}".format(size=size, k=k, cmd=cmd))
@@ -187,7 +189,7 @@ class disk(object):
         """\
         Return the mount points defined on this disk.
         """
-        return(sorted([mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items()]))
+        return(sorted([mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items() if mount]))
 
 
     def mount(self, mounts=None):

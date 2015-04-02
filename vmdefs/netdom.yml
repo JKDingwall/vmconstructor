@@ -12,13 +12,11 @@ packages:
     - openvswitch-switch
 
 disks:
-    netdom:
+    dmuknd:
         type: squash
         path: /
-    boot.img:
+    hddimg:
         type: hdd
-        bootloader: grub-efi
-#        bootloader-payload: /root/image-builder/payloads/ubuntu/grub-efi-setup
         xvda:
             label: gpt
             partitions:
@@ -31,11 +29,18 @@ disks:
                     mount: /boot
                     size: 512
                     filesystem: btrfs
-                    label: netdom /boot
+                    label: dmuknd /boot
                 3:
                     mount: /
                     size: 16384
                     filesystem: btrfs
-                    label: netdom /
+                    label: dmuknd /
+        xvdb:
+            label: gpt
+            partitions:
+                1:
+                    size: 2048
+                    filesystem: btrfs
+                    label: dmuknd config
 data:
     hostname: dmuknd

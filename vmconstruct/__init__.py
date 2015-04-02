@@ -23,6 +23,7 @@ import yaml
 
 from . import bootstrap
 from . import btrfs
+from .silly import cowstatus
 
 
 cfgdefs = {
@@ -119,9 +120,12 @@ def main():
             proxy = ymlcfg[dist].get("proxy", None)
 
             for rel in rels:
+                cowstatus("bootstrap ubuntu {r}".format(r=rel))
                 relvol = distvol.create(rel)
                 base = bootstrap.debootstrap(relvol.create("_bootstrap"))
                 base.bootstrap(rel, archive=archive, proxy=proxy)
+
+                cowstatus("update ubuntu {r}".format(r=rel))
                 update = base.clone("_update")
                 updvmyml = {
                     "dist": dist,
@@ -134,24 +138,39 @@ def main():
                 tpldirs.extend([os.path.join(basetpl, dist, rel, "_all") for basetpl in ymlcfg["build"]["basetemplates"]])
                 tpldirs.extend([os.path.join(basetpl, dist, rel, "_update") for basetpl in ymlcfg["build"]["basetemplates"]])
 
-                with update.applytemplates(ymlcfg, updvmyml, *tpldirs):
+                payloads = []
+                try:
+                    if isinstance(ymlcfg["build"]["updates"][dist]["_all"]["payloads"], list):
+                        payloads += ymlcfg["build"]["updates"][dist]["_all"]["payloads"]
+                except KeyError:
+                    pass
+
+                try:
+                    if isinstance(ymlcfg["build"]["updates"][dist][rel]["payloads"], list):
+                        payloads += ymlcfg["build"]["updates"][dist][rel]["payloads"]
+                except KeyError:
+                    pass
+
+                with update.applytemplates(ymlcfg, updvmyml, *tpldirs), update.applypayloads(*payloads):
                     if not cmdline.quick:
                         update.update(proxy=proxy)
                     try:
-                        if isinstance(ymlcfg["build"]["updatepackages"][dist]["_all"], list):
-                            [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist]["_all"]]
+                        if isinstance(ymlcfg["build"]["updates"][dist]["_all"]["packages"], list):
+                            [update.install(pkg) for pkg in ymlcfg["build"]["updates"][dist]["_all"]["packages"]]
                     except KeyError:
+
                         pass
 
                     try:
-                        if isinstance(ymlcfg["build"]["updatepackages"][dist][rel], list):
-                            [update.install(pkg) for pkg in ymlcfg["build"]["updatepackages"][dist][rel]]
+                        if isinstance(ymlcfg["build"]["updates"][dist][rel]["packages"], list):
+                            [update.install(pkg) for pkg in ymlcfg["build"]["updates"][dist][rel]["packages"]]
                     except KeyError:
                         pass
 
     # create individual builds
     for vmdef in ymlcfg["build"]["vmdefs"]:
         logger.debug("Starting build of {v}".format(v=vmdef))
+        cowstatus("building {v}".format(v=vmdef))
         with open(os.path.join(ymlcfg["global"]["paths"]["vmdefs"], vmdef+".yml"), "rb") as vmymlfp:
             vmyml = yaml.load(vmymlfp)
 
