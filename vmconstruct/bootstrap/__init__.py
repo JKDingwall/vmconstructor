@@ -271,6 +271,7 @@ class debootstrap(_bootstrap):
             "--arch=amd64",
             "--components=main",
             "--foreign",
+            "--include=lsb-release",
             release,
             self._imagepath,
             archive
