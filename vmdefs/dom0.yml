@@ -15,6 +15,7 @@ packages:
     - lm-sensors
     - lvm2
     - mdadm
+    - pciutils
     - smartmontools
     - xen-hypervisor-4.4-amd64
 

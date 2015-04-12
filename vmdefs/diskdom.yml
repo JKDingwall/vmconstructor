@@ -15,6 +15,7 @@ packages:
     - ceph
     - lvm2
     - mdadm
+    - pciutils
     - smartmontools
 
 disks:
