@@ -8,7 +8,6 @@ settings:
     pause: false
 
 packages:
-    - openvswitch-controller
     - openvswitch-switch
 
 disks:
