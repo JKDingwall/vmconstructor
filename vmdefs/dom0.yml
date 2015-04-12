@@ -24,7 +24,8 @@ disks:
         path: /
     hddimg:
         type: hdd
-        #payloads: /root/image-builder/payloads/ubuntu/grub-efi-setup
+        payloads:
+            - /root/images-build/payloads/ubuntu/grub-efi-setup
         xvda:
             label: gpt
             partitions:

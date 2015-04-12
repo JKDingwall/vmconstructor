@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+# James Dingwall
+
+# This will get grubx64.efi installed
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --no-uefi-secure-boot --no-nvram
+
+# TODO
+# Generate a suitable grub.cfg - this will probably be wrong wrt
+# partition uuids etc
+update-grub
+
+# If there is no boot manager then copy grub to the
+# well known location.  With OVMF the bcfg# configuration
+# is not persistent unless set through the EFI shell.
+if ! [ -f "/boot/efi/EFI/Boot/bootx64.efi" ] ; then
+    mkdir -p /boot/efi/EFI/Boot
+    cp -f /boot/efi/EFI/ubuntu/grubx64.efi /boot/efi/EFI/Boot/bootx64.efi
+fi
+
+# TODO
+# Retrieve the filesystem uuid for /boot
+BOOTUUID="$(findmnt -n -o UUID $(stat -c "%m" "/boot"))"
+cat << EOF > /boot/efi/EFI/ubuntu/grub.cfg
+search.fs_uuid ${BOOTUUID} root
+set prefix=($root)'/@/boot/grub'
+configfile $prefix/grub.cfg
+EOF
