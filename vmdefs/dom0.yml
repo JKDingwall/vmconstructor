@@ -11,13 +11,14 @@ settings:
 
 packages:
     - bcache-tools
+    - ethtool
     - grub-efi
     - lm-sensors
     - lvm2
     - mdadm
     - pciutils
     - smartmontools
-    - xen-hypervisor-4.4-amd64
+    - xen-hypervisor-4.5-amd64
 
 disks:
     dmukd0:

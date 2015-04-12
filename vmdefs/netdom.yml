@@ -8,6 +8,7 @@ settings:
     pause: false
 
 packages:
+    - ethtool
     - openvswitch-switch
     - pciutils
 
