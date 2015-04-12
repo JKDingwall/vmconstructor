@@ -3,6 +3,7 @@ __all__ = []
 
 import abc
 import copy
+import glob
 import json
 import logging
 import os
@@ -417,3 +418,12 @@ done
         self._logger.debug("Installing packages: {a}".format(a=args))
         self._logger.warning("Support arbitrary arguments for apt-get command")
         self.execChroot(*[["apt-get", "-y", "install", x] for x in args], chrootpath=chrootpath)
+
+
+    def solidify(self, disksyml):
+        """\
+        Before an ubuntu image solidify clean out the .deb package cache.
+        """
+        for deb in glob.glob(os.path.join(self._subvol.path, "var", "cache", "apt", "archives", "*.deb")):
+            os.unlink(deb)
+        super(ubuntu, self).solidify(disksyml)
