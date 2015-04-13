@@ -9,6 +9,7 @@ settings:
 
 packages:
     - ethtool
+    - mtr
     - openvswitch-switch
     - pciutils
 
