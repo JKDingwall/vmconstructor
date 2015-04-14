@@ -17,7 +17,9 @@ packages:
     - lvm2
     - mdadm
     - pciutils
+    - sbsigntool
     - smartmontools
+    - tpm-tools
     - xen-hypervisor-4.5-amd64
 
 disks:
