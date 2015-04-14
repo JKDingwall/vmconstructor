@@ -4,8 +4,72 @@ set -e
 
 # James Dingwall
 
+# The default modules, listed in grub2 source package debain/build-efi-image
+CD_MODULES="
+     all_video
+     boot
+     btrfs
+     cat
+     chain
+     configfile
+     echo
+     efifwsetup
+     efinet
+     ext2
+     fat
+     font
+     gettext
+     gfxmenu
+     gfxterm
+     gfxterm_background
+     gzio
+     halt
+     hfsplus
+     iso9660
+     jpeg
+     keystatus
+     loadenv
+     linux
+     linuxefi
+     lsefi
+     lsefimmap
+     lsefisystab
+     lssal
+     memdisk
+     minicmd
+     normal
+     part_apple
+     part_msdos
+     part_gpt
+     password_pbkdf2
+     png
+     reboot
+     search
+     search_fs_uuid
+     search_fs_file
+     search_label
+     sleep
+     test
+     video
+"
+
+GRUB_MODULES="${CD_MODULES}
+    lvm
+    mdraid09
+    mdraid1x
+"
+
+DMUK_MODULES="${GRUB_MODULES}
+    multiboot
+"
+
+
 # This will get grubx64.efi installed
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --no-uefi-secure-boot --no-nvram
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --no-uefi-secure-boot --no-nvram --modules "${DMUK_MODULES}"
+
+TGRUBX64=$(mktemp)
+# TODO sign grub
+rm -f "${TGRUBX64}"
 
 # TODO
 # Generate a suitable grub.cfg - this will probably be wrong wrt
@@ -20,11 +84,11 @@ if ! [ -f "/boot/efi/EFI/Boot/bootx64.efi" ] ; then
     cp -f /boot/efi/EFI/ubuntu/grubx64.efi /boot/efi/EFI/Boot/bootx64.efi
 fi
 
-# TODO
-# Retrieve the filesystem uuid for /boot
 BOOTUUID="$(findmnt -n -o UUID $(stat -c "%m" "/boot"))"
 cat << EOF > /boot/efi/EFI/ubuntu/grub.cfg
 search.fs_uuid ${BOOTUUID} root
 set prefix=($root)'/@/boot/grub'
 configfile $prefix/grub.cfg
 EOF
+
+cp /usr/share/grub/unicode.pf2 /boot/efi/EFI/ubuntu/
