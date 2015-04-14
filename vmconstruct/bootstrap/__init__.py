@@ -424,6 +424,6 @@ done
         """\
         Before an ubuntu image solidify clean out the .deb package cache.
         """
-        for deb in glob.glob(os.path.join(self._subvol.path, "var", "cache", "apt", "archives", "*.deb")):
+        for deb in glob.glob(os.path.join(self._subvol.path, "origin", "var", "cache", "apt", "archives", "*.deb")):
             os.unlink(deb)
         super(ubuntu, self).solidify(disksyml)
