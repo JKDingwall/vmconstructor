@@ -166,7 +166,7 @@ class apply(object):
                         if renderctx["sha256"] == r256.hexdigest():
                             self._logger.warning("Template was already applied")
                         else:
-                            raise VMCTemplateChecksumError("unacceptable sha256")
+                            raise VMCTemplateChecksumError("unacceptable sha256: {c}".format(c=renderctx["sha256"]))
                 except KeyError:
                     pass
 
