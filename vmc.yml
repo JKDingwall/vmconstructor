@@ -21,28 +21,33 @@ build:
             - trusty
     # Update packages are installed during the update of the
     # debootstrap packages.
-    updatepackages:
+    updates:
         ubuntu:
-            # Introduce _all section?
             _all:
-                - btrfs-tools
-                - gdisk
-                - less
-                - logrotate
-                - lsb-release
-                - nano
-                - openssh-server
-                - screen
-                - sudo
-                - vim
-                - xfsprogs
+                packages:
+                    - btrfs-tools
+                    - gdisk
+                    - less
+                    - logrotate
+                    - lsb-release
+                    - nano
+                    - ntp
+                    - openssh-server
+                    - screen
+                    - sudo
+                    - vim
+                    - xfsprogs
             precise:
-                #- aufs-tools
-                - linux-image-generic
+                packages:
+                    #- aufs-tools
+                    - linux-image-generic
             trusty:
-                #- aufs-tools
-                - dhcpcd5
-                - linux-image-generic-lts-utopic
+                packages:
+                    #- aufs-tools
+                    - dhcpcd5
+                    - linux-dmuk-lts-utopic
+                payloads:
+                    - /root/images-build/payloads/ubuntu/repo-dmuk
     basetemplates:
         # A list of directories where we apply common templates from
         - /root/images-build/tpl

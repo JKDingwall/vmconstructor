@@ -14,6 +14,7 @@ __all__ = []
 __all__.append("bootstrap")
 __all__.append("btrfs")
 
+__version__ = "0.0"
 
 import argparse
 import logging
