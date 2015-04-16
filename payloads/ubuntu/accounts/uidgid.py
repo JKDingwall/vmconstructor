@@ -6,7 +6,9 @@ to make uids/gids consistent between vm builds we will merge preferred
 accounts ahead of time.
 """
 
-# TODO: supplementary groups
+# TODO: when fully re-writing files it would be safer to use
+# a temporary file which is moved in to place at the end but
+# considered low risk since this is an offline build tool.
 
 import argparse
 import logging
@@ -142,11 +144,29 @@ def dosort(idfile, shfile):
     with open(idfile, "rt") as idfp:
         lines = idfp.read().splitlines()
 
-    with open(idfile, "wb") as idfp:
+    shadow = {}
+    with open(shfile, "rt") as shfp:
+        for line in shfp.read().splitlines():
+            shadow[line.split(":")[0]] = line
+
+    with open(idfile, "wb") as idfp, open(shfile, "wb") as shfp:
         for line in sorted(lines, key=lambda i: int(i.split(":")[2])):
             idfp.write(line.encode("utf-8"))
             idfp.write("\n".encode("utf-8"))
 
+            try:
+                shfp.write(shadow[line.split(":")[0]].encode("utf-8"))
+                del shadow[line.split(":")[0]]
+                shfp.write("\n".encode("utf-8"))
+            except KeyError:
+                pass
+
+    if shadow:
+        logging.warning("some entries were left in the shadow file, appending")
+        with open(shfile, "ab") as shfp:
+            for line in shadow.values():
+                shfp.write(line.encode("utf-8"))
+                shfp.write("\n")
 
 
 if __name__ == "__main__":
