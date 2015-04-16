@@ -135,6 +135,20 @@ def alignsuppls(merged_users, suppls, idfile):
 
 
 
+def dosort(idfile, shfile):
+    """\
+    Sort files by id
+    """
+    with open(idfile, "rt") as idfp:
+        lines = idfp.read().splitlines()
+
+    with open(idfile, "wb") as idfp:
+        for line in sorted(lines, key=lambda i: int(i.split(":")[2])):
+            idfp.write(line.encode("utf-8"))
+            idfp.write("\n".encode("utf-8"))
+
+
+
 if __name__ == "__main__":
     """\
     Perform setup and then do the necessary work.
@@ -143,3 +157,5 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     domerge()
+    dosort("/etc/passwd", "/etc/shadow")
+    dosort("/etc/group", "/etc/gshadow")
