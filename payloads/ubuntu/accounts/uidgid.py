@@ -50,6 +50,17 @@ def domerge():
                 logging.debug("No reference account information found for {f}".format(f=idfile))
                 rdata = []
 
+        # if we are working group examine supplementary memberships
+        if idfile == "group":
+            suppls = {}
+            for ref in rdata:
+                for k in ref.split(":")[3].split(","):
+                    if not k:
+                        continue
+                    if k not in suppls:
+                        suppls[k] = []
+                    suppls[k].append(ref.split(":")[0])
+
         # merge reference ids
         merged_users = []
         with open(os.path.join(os.sep, "etc", idfile), "ab") as idfp:
