@@ -196,7 +196,7 @@ def main():
         except FileExistsError:
             logger.warning("TODO: implement dist-upgrade, upgrade commands")
             if onexist == "rebuild":
-                base._subvol._parent.create(vmdef).delete()
+                base._subvol._parent.create(vmdef).delete(recursive=True)
                 vm = base.clone(vmdef)
             elif onexist in ["dist-ugrade", "upgrade"]:
                 logger.warning("TODO: differentiated between dist-upgrade and upgrade")
