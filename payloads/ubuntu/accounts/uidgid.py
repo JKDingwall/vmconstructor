@@ -50,6 +50,10 @@ def domerge():
                 logging.debug("No reference account information found for {f}".format(f=idfile))
                 rdata = []
 
+        # merge reference ids
+        if idfile == "passwd":
+            merged_users = []
+
         # if we are working group examine supplementary memberships
         if idfile == "group":
             suppls = {}
@@ -61,8 +65,6 @@ def domerge():
                         suppls[k] = []
                     suppls[k].append(ref.split(":")[0])
 
-        # merge reference ids
-        merged_users = []
         with open(os.path.join(os.sep, "etc", idfile), "ab") as idfp:
             print(os.path.join(os.sep, "etc", idfile))
             with open(os.path.join(os.sep, "etc", shadow), "ab") as shfp:
@@ -100,12 +102,44 @@ def domerge():
                     elif idfile == "group":
                         shfp.write("{g}:*::\n".format(g=ref.split(":")[0]).encode("utf-8"))
 
+    logging.debug(merged_users)
+    logging.debug(suppls)
+
+    alignsuppls(merged_users, suppls, os.path.join(os.sep, "etc", "group"))
+    alignsuppls(merged_users, suppls, os.path.join(os.sep, "etc", "gshadow"))
+
+
+def alignsuppls(merged_users, suppls, idfile):
+    """\
+    Ensure that supplementary groups are correctly recorded in
+    /etc/group and /etc/gshadow.
+    """
+    for mu in merged_users:
+        if mu in suppls:
+            with open(idfile, "rt") as idfp:
+                lines = idfp.read().splitlines()
+
+            with open(idfile, "wb") as idfp:
+                for line in lines:
+                    if line.split(":")[0] in suppls[mu]:
+                        if mu not in line.split(":")[3].split(","):
+                            fields = line.split(":")
+                            if fields[3]:
+                                fields[3] = ",".join(fields[3].split(",")+[mu])
+                            else:
+                                fields[3] = mu
+                            line = ":".join(fields)
+                            logging.info("adding {g} as a supplementary group of user {u}".format(u=mu, g=line.split(":")[0]))
+                    idfp.write(line.encode("utf-8"))
+                    idfp.write("\n".encode("utf-8"))
+
+
 
 if __name__ == "__main__":
     """\
     Perform setup and then do the necessary work.
     """
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     domerge()
