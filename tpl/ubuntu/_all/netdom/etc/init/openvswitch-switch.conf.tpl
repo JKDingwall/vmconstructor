@@ -4,8 +4,8 @@
     i["sha256"] = [
         "e2471490a4e5517e6a7ee80e1d867c4bc2c20b914b00c2f69827342fdf5cd137"
     ]
-%></%def><%text>\
-# vim: set ft=upstart ts=2 et:
+%></%def>\
+<%text># vim: set ft=upstart ts=2 et:
 description "Open vSwitch switch"
 author "James Page <james.page@ubuntu.com"
 
