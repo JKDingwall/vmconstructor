@@ -43,9 +43,9 @@ setuptools.setup(
 #    long_description=open("README.rst").read(),
     license="Proprietary",
 #   Any external package dependencies should be listed
-#    install_requires=[
-#        "list_of_packages"
-#    ],
+    install_requires=[
+        "tabulate"
+    ],
     packages=setuptools.find_packages(),
     package_dir={"vmconstruct": "vmconstruct"},
     include_package_data=True,
