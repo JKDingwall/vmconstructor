@@ -168,7 +168,37 @@ def dosort(idfile, shfile):
         with open(shfile, "ab") as shfp:
             for line in shadow.values():
                 shfp.write(line.encode("utf-8"))
-                shfp.write("\n")
+                shfp.write("\n".encode("utf-8"))
+
+
+def dohashes(shfile, hashref):
+    """\
+    This function will insert hashes to the shadow file to
+    set the password.
+    """
+    inserts = {}
+
+    try:
+        with open(hashref, "rt") as hashfp:
+            for line in hashfp.read().splitlines():
+                fields = line.split(":")
+                inserts[fields[0]] = fields[1]
+    except FileNotFoundError:
+        return
+
+    with open(shfile, "rt") as shfp:
+        lines = shfp.read().splitlines()
+
+    with open(shfile, "wb") as shfp:
+        for line in lines:
+            if line.split(":")[0] in inserts:
+                fields = line.split(":")
+                fields[1] = inserts[fields[0]]
+                line = ":".join(fields)
+                logging.debug("inserting password hash to {f} for {u}".format(f=shfile, u=fields[0]))
+
+            shfp.write(line.encode("utf-8"))
+            shfp.write("\n".encode("utf-8"))
 
 
 if __name__ == "__main__":
@@ -179,5 +209,9 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     domerge()
+
     dosort("/etc/passwd", "/etc/shadow")
     dosort("/etc/group", "/etc/gshadow")
+
+    dohashes("/etc/shadow", "shadow-hashes")
+    dohashes("/etc/gshadow", "gshadow-hashes")
