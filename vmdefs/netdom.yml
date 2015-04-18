@@ -9,6 +9,7 @@ settings:
 
 packages:
     - ethtool
+    - grub-efi
     - mtr
     - openvswitch-switch
     - pciutils
@@ -19,6 +20,8 @@ disks:
         path: /
     hddimg:
         type: hdd
+        payloads:
+            - /root/images-build/payloads/ubuntu/grub-efi-setup
         xvda:
             label: gpt
             partitions:
