@@ -10,6 +10,9 @@ accounts ahead of time.
 # a temporary file which is moved in to place at the end but
 # considered low risk since this is an offline build tool.
 
+# TODO: verify supplementary groups are correct even when not
+# adding users.
+
 import argparse
 import logging
 import os
@@ -54,7 +57,7 @@ def domerge():
 
         # merge reference ids
         if idfile == "passwd":
-            merged_users = []
+            merged_users = sorted(names)
 
         # if we are working group examine supplementary memberships
         if idfile == "group":
@@ -92,7 +95,6 @@ def domerge():
 
                     # make up a shadow entry
                     if idfile == "passwd":
-                        merged_users.append(ref.split(":")[0])
                         shfp.write("{u}:*:{today}:0:99999:7:::\n".format(u=ref.split(":")[0], today=int(time.time() / (24*60*60))).encode("utf-8"))
                         # and create a home directory if one doesn't exist
                         pathfilter = ["/var/run"]

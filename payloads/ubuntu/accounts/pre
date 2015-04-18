@@ -1,1 +1,50 @@
-uidgid.py
+#!/bin/bash
+
+set -e
+set -x
+
+# James Dingwall
+# DMUK
+
+if /usr/bin/which python3 ; then
+    # Prefer our python version if available
+    /usr/bin/env python3 uidgid.py
+else
+    # Else fall back to very basic shell
+    # Packages may be unconfigured, virtual filesystems
+    # (/dev, /proc, /sys) may not be mounted.
+
+    cat passwd-reference | while read PWLINE ; do
+        name="$(echo "${PWLINE}" | cut -f 1 -d :)"
+        uid="$(echo "${PWLINE}" | cut -f 3 -d :)"
+        today="$(($(date +%s) / $((3600 * 24))))"
+
+        if [ "${uid}" -lt 100 ] ; then
+            continue
+        fi
+
+        echo "${PWLINE}" >> /etc/passwd
+        echo "${name}:*:${today}:0:99999:7:::" >> /etc/shadow
+    done
+
+    cat group-reference | while read GRLINE ; do
+        name="$(echo "${GRLINE}" | cut -f 1 -d :)"
+        gid="$(echo "${GRLINE}" | cut -f 3 -d :)"
+
+        if [ "${gid}" -lt 100 ] ; then
+            continue
+        fi
+
+        echo "${GRLINE}" >> /etc/group
+        echo "${name}:*::" >> /etc/gshadow
+    done
+
+    # Leave a marker the python version didn't run
+    touch NOPYTHON
+fi
+
+
+# Record how the files look before we start
+for i in group gshadow passwd shadow ; do
+    cp "/etc/${i}" "start-${i}"
+done
