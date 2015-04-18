@@ -27,12 +27,14 @@ build:
                 packages:
                     - btrfs-tools
                     - gdisk
+                    - iptables
                     - less
                     - logrotate
                     - lsb-release
                     - nano
                     - ntp
                     - openssh-server
+                    - rsyslog
                     - screen
                     - sudo
                     - vim
@@ -46,8 +48,10 @@ build:
                     #- aufs-tools
                     - dhcpcd5
                     - linux-dmuk-lts-utopic
+                    - ulogd2
                 payloads:
                     - /root/images-build/payloads/ubuntu/repo-dmuk
+                    - /root/images-build/payloads/ubuntu/accounts
     basetemplates:
         # A list of directories where we apply common templates from
         - /root/images-build/tpl
