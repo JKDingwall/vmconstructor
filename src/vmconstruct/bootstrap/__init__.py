@@ -171,6 +171,54 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                 raise
 
 
+    def _prepareChroot(self, chrootpath):
+        """\
+        This method is called on entry to the image to prepare
+        it for execution of chroot commands.
+        """
+        pass
+
+
+    def _unprepareChroot(self, chrootpath):
+        """\
+        This method is called on exit from the chroot path to
+        prepare it for execution of chroot commands.
+        """
+        pass
+
+
+    def execChroot(self, *args, chrootpath=None):
+        """\
+        Execute the array of commands in the chroot environment.
+        """
+        if chrootpath is None:
+            chrootpath = os.path.join(self._subvol.path, "origin")
+
+        try:
+            self._prepareChroot(chrootpath)
+            for cmd in args:
+                self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=chrootpath, cmd=cmd))
+                self.logActivity("chroot", cmd)
+                subprocess.check_call(["chroot", chrootpath] + cmd)
+        finally:
+            self._unprepareChroot(chrootpath)
+
+
+    def applytemplates(self, ymlcfg, vmyml, *dirs):
+        """\
+        Find templates in tpldir and apply them in the current volume.
+        """
+        return(applydirs(self, ymlcfg, vmyml, *dirs).apply())
+
+
+    def applypayloads(self, *payloads, chrootpath=None):
+        """\
+        Apply payload scripts to the image.
+        """
+        return(applyplds(self, *payloads, chrootpath=chrootpath).apply())
+
+
+
 
 
 class _bootstrap(_imageBase, metaclass=abc.ABCMeta):
@@ -184,16 +232,6 @@ class _bootstrap(_imageBase, metaclass=abc.ABCMeta):
 
 
 class _image(_imageBase, metaclass=abc.ABCMeta):
-    @abc.abstractmethod
-    def _prepareChroot(self, chrootpath=None):
-        pass
-
-
-    @abc.abstractmethod
-    def _unprepareChroot(self, chrootpath=None):
-        pass
-
-
     @abc.abstractmethod
     def update(self):
         """\
@@ -217,37 +255,6 @@ class _image(_imageBase, metaclass=abc.ABCMeta):
         """
         self._status["uuid"] = str(uuid.uuid4())
         self._saveStatus()
-
-
-    def execChroot(self, *args, chrootpath=None):
-        """\
-        Execute the array of commands in the chroot environment.
-        """
-        if chrootpath is None:
-            chrootpath = os.path.join(self._subvol.path, "origin")
-
-        try:
-            self._prepareChroot(chrootpath=chrootpath)
-            for cmd in args:
-                self._logger.debug("Executing chroot command in {p}: {cmd}".format(p=chrootpath, cmd=cmd))
-                self.logActivity("chroot", cmd)
-                subprocess.check_call(["chroot", chrootpath] + cmd)
-        finally:
-            self._unprepareChroot(chrootpath=chrootpath)
-
-
-    def applytemplates(self, ymlcfg, vmyml, *dirs):
-        """\
-        Find templates in tpldir and apply them to the image.
-        """
-        return(applydirs(self, ymlcfg, vmyml, *dirs).apply())
-
-
-    def applypayloads(self, *payloads, chrootpath=None):
-        """\
-        Apply payload scripts to the image.
-        """
-        return(applyplds(self, *payloads, chrootpath=chrootpath).apply())
 
 
 
@@ -366,10 +373,7 @@ done
         return(ubuntu)
 
 
-    def _prepareChroot(self, chrootpath=None):
-        if chrootpath is None:
-            chrootpath = os.path.join(self._subvol.path, "origin")
-
+    def _prepareChroot(self, chrootpath):
         # Mounts for filesystems
         for mnt in self.chroot_bind:
             subprocess.check_call(["mount", "-o", "bind", os.path.join(os.sep, mnt), os.path.join(chrootpath, mnt)])
@@ -381,10 +385,7 @@ done
         shutil.copyfile("/etc/mtab", os.path.join(chrootpath, "etc", "mtab"))
 
 
-    def _unprepareChroot(self, chrootpath=None):
-        if chrootpath is None:
-            chrootpath = os.path.join(self._subvol.path, "origin")
-
+    def _unprepareChroot(self, chrootpath):
         # /proc/mtab
         os.unlink(os.path.join(chrootpath, "etc", "mtab"))
         try:

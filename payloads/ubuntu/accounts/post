@@ -7,14 +7,15 @@ set -e
 
 if /usr/bin/which diff ; then
     for i in group gshadow passwd shadow ; do
-        if diff -u  "/etc/${i}" "start-${i}" ; then
+        if ! diff -u  "/etc/${i}" "start-${i}" ; then
             cat << EOF
-__        __               _             _
-\ \      / /_ _ _ __ _ __ (_)_ __   __ _| |
- \ \ /\ / / _` | '__| '_ \| | '_ \ / _` | |
-  \ V  V / (_| | |  | | | | | | | | (_| |_|
-   \_/\_/ \__,_|_|  |_| |_|_|_| |_|\__, (_)
-                                   |___/
+#     #                                                   ###
+#  #  #    ##    #####   #    #     #    #    #   ####    ###
+#  #  #   #  #   #    #  ##   #     #    ##   #  #    #   ###
+#  #  #  #    #  #    #  # #  #     #    # #  #  #         #
+#  #  #  ######  #####   #  # #     #    #  # #  #  ###
+#  #  #  #    #  #   #   #   ##     #    #   ##  #    #   ###
+ ## ##   #    #  #    #  #    #     #    #    #   ####    ###
 
 ${i} content changed during this build phase
 EOF
