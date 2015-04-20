@@ -44,6 +44,7 @@ setuptools.setup(
     license="Proprietary",
 #   Any external package dependencies should be listed
     install_requires=[
+        "Mako",
         "tabulate"
     ],
     packages=setuptools.find_packages(),
