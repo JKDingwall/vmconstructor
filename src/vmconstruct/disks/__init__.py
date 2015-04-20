@@ -51,6 +51,17 @@ class disks(object):
             disk.umount(mount)
 
 
+    def fstab(self):
+        """\
+        Accumulate all the fstab entries from all the disks.
+        """
+        fstab = []
+        for disk in self._disks.values():
+            fstab.extend(disk.fstab())
+
+        return(fstab)
+
+
 
 class disk(object):
     class _losetup(SparseList):
@@ -141,7 +152,7 @@ class disk(object):
             else:
                 name = None
 
-            self._parts[idx] = (part["size"], part["filesystem"], part.get("mount", None), part.get("label", None))
+            self._parts[idx] = partition.partition(part["size"], part["filesystem"], part.get("mount", None), part.get("label", None), {})
             self._pt.addPartition(idx, part["size"], part.get("partcode", part["filesystem"]), name=name, flags=part.get("flags", []))
 
         try:
@@ -173,7 +184,7 @@ class disk(object):
         with self._lo:
             self._logger.error("TODO: support aribtrary fs args")
             for (k, (mapper, loop)) in self._lo.elements.items():
-                (size, filesystem, mount, label) = self._parts[k]
+                (size, filesystem, mount, label, _) = self._parts[k]
                 if filesystem == "esp":
                     cmd = ["mkfs", "-t", "vfat", "-n", "EFI_SYSTEM", "-F", "32", mapper]
                 elif filesystem == "swap":
@@ -183,13 +194,20 @@ class disk(object):
                 self._logger.debug("Formatting disk {size}Mb partition {k}: {cmd}".format(size=size, k=k, cmd=cmd))
                 print(subprocess.check_output(cmd).decode(encoding="UTF-8"))
 
+                # Learn the UUID of the formatted device
+                cmd = ["blkid", "-o", "export", mapper]
+                for line in subprocess.check_output(cmd).decode(encoding="UTF-8").splitlines():
+                    [var, val] = line.split("=")
+                    if var == "UUID":
+                        self._parts[k].flags[var] = val
+
 
     @property
     def mounts(self):
         """\
         Return the mount points defined on this disk.
         """
-        return(sorted([mount for (k, (size, filesystem, mount, label)) in self._parts.elements.items() if mount]))
+        return(sorted([x.mount for x in self._parts.elements.values() if x.mount and x.mount != "swap"]))
 
 
     def mount(self, mounts=None):
@@ -212,7 +230,7 @@ class disk(object):
                 if not os.path.isdir(mnt):
                     raise
 
-            k = [k for (k, (s, f, m, l)) in self._parts.elements.items() if m == mount].pop()
+            k = [k for (k, (s, f, m, l, _)) in self._parts.elements.items() if m == mount].pop()
             (mapper, loop) = self._lo[k]
 
             cmd = ["mount", mapper, mnt]
@@ -237,3 +255,39 @@ class disk(object):
 
         if not len(self._mounts.keys()):
             self.ulosetup()
+
+
+    def fstab(self):
+        """\
+        Return a list of lists which are suitable for consumption in the helpers.fstab
+        function.
+
+        [<file system>, <mount point>, <type>, <options>, <dump>, <pass>]
+
+        If the mountpoint is / the pass is 1, else 2 for checkable fstypes.
+        We'll return the <file system> as UUID=... if available, else LABEL=...
+        """
+        fstab = []
+
+        def ckpass(m):
+            if m == "/":
+                return(1)
+            elif m == "swap":
+                return(0)
+            else:
+                return(2)
+
+        for p in self._parts.elements.values():
+            if not p.mount:
+                continue
+
+            fstab.append([
+                "UUID={u}".format(u=p.flags["UUID"]),
+                p.mount,
+                p.fmtfilesystem,
+                "defaults" if p.filesystem != "swap" else "sw",
+                0,
+                ckpass(p.mount)
+            ])
+
+        return(fstab)

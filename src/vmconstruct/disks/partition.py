@@ -3,6 +3,7 @@ import abc
 import logging
 import uuid
 from binascii import crc32
+from collections import namedtuple
 from random import choice
 from sparse_list import SparseList
 
@@ -34,6 +35,7 @@ class partitionType(object):
         "ext2": "linux/filesystem",
         "ext3": "linux/filesystem",
         "ext4": "linux/filesystem",
+        "swap": "linux/swap",
         "xfs": "linux/filesystem"
     }
 
@@ -278,6 +280,24 @@ class PartitionTooLarge(Exception):
     Raise if the requested partition size is beyond the capabilities of the
     partition table type.
     """
+
+
+
+class partition(namedtuple("partition", "size filesystem mount label flags")):
+    """\
+    A class representing a partition on the disk.
+    """
+    @property
+    def fmtfilesystem(self):
+        """\
+        Although the filesystem generally is formatted using the filesystem
+        property there are some cases where a translation is required.  This
+        function will perform that work.
+        """
+        if self.filesystem == "esp":
+            return("vfat")
+        else:
+            return(self.filesystem)
 
 
 

@@ -15,6 +15,7 @@ import uuid
 
 from .payloads import applyplds
 from .templates import applydirs
+from .. import helpers
 from ..exceptions import *
 from ..disks import disks
 
@@ -127,6 +128,10 @@ class _imageBase(object, metaclass=abc.ABCMeta):
                     cmd = ["rsync", "-avHAX", "--delete", "--progress", os.path.join(self._subvol.path, "origin")+"/", mntpoint+"/"]
                     print(subprocess.check_call(cmd))
                     with self.applypayloads(*payloads, chrootpath=mntpoint): pass
+                    newfstab = helpers.fstab(os.path.join(mntpoint, "etc", "fstab"), d.fstab())
+                    self._logger.debug("Rewriting fstab as:\n{fstab}".format(fstab=newfstab))
+                    with open(os.path.join(mntpoint, "etc", "fstab"), "wb") as fp:
+                        fp.write(newfstab.encode("utf-8"))
                 finally:
                     d.umount()
             else:
