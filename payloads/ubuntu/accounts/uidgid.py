@@ -195,7 +195,7 @@ def dohashes(shfile, hashref):
                 fields = line.split(":")
                 fields[1] = inserts[fields[0]]
                 line = ":".join(fields)
-                logging.debug("inserting password hash to {f} for {u}".format(f=shfile, u=fields[0]))
+                logging.debug("inserting password hash for {u} in {f}".format(f=shfile, u=fields[0]))
 
             shfp.write(line.encode("utf-8"))
             shfp.write("\n".encode("utf-8"))
