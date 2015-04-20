@@ -38,7 +38,7 @@ GRUB_CMDLINE_XEN=""
 # natively or as dom0 kernel.
 #
 GRUB_CMDLINE_LINUX_XEN_REPLACE_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT"
-GRUB_CMDLINE_LINUX_XEN_REPLACE="$GRUB_CMDLINE_LINUX tmem console=hvc0 console=tty0 earlyprintk=xenboot"
+GRUB_CMDLINE_LINUX_XEN_REPLACE="$GRUB_CMDLINE_LINUX xen-pciback.passthrough=1 tmem console=hvc0 console=tty0 earlyprintk=xenboot"
 #
 # For example:
 #
