@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+
+# James Dingwall
+# Setup the erlang repository
+
+apt-key add - < repo-erlang.key
+
+cat << EOF > /etc/apt/sources.list.d/erlang.list
+deb http://packages.erlang-solutions.com/ubuntu trusty contrib
+EOF
+
+apt-get update
