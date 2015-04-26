@@ -13,6 +13,7 @@ packages:
     - bcache-tools
     - ethtool
     - grub-efi
+    - hdparm
     - lm-sensors
     - lvm2
     - mdadm

@@ -13,6 +13,7 @@ packages:
     - mtr
     - openvswitch-switch
     - pciutils
+    - xen-utils-common
 
 disks:
     dmuknd:
@@ -47,5 +48,10 @@ disks:
                     size: 2048
                     filesystem: btrfs
                     label: dmuknd config
+                2:
+                    mount: swap
+                    size: 2048
+                    filesystem: swap
+                    label: dmuknd swap
 data:
     hostname: dmuknd

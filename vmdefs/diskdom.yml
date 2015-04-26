@@ -13,10 +13,12 @@ settings:
 packages:
     - bcache-tools
     - ceph
+    - hdparm
     - lvm2
     - mdadm
     - pciutils
     - smartmontools
+    - xen-utils-common
 
 disks:
     diskdom:

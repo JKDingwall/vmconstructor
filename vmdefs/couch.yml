@@ -6,20 +6,23 @@ release: trusty
 settings:
     onexist: rebuild
     pause: false
-    payloads:
-        - payloads/ubuntu/repo-ceph
 
 packages:
-    - ceph
-    - grub-efi
+    - esl-erlang
+    - icu-devtools
+    - libicu-dev
+    - libmozjs185-dev
+    - nginx-extras
 
 disks:
-    cmon:
+    couch:
         type: squash
         path: /
     hddimg:
         type: hdd
         payloads:
+            - /root/images-build/payloads/ubuntu/repo-erlang
+            - /root/images-build/payloads/ubuntu/couchdb-install
             - /root/images-build/payloads/ubuntu/grub-efi-setup
         xvda:
             label: gpt
@@ -33,24 +36,23 @@ disks:
                     mount: /boot
                     size: 512
                     filesystem: btrfs
-                    label: cmon /boot
+                    label: couch /boot
                 3:
                     mount: /
                     size: 16384
                     filesystem: btrfs
-                    label: cmon /
+                    label: couch /
         xvdb:
             label: gpt
             partitions:
                 1:
                     size: 2048
                     filesystem: btrfs
-                    label: cmon config
+                    label: couch config
                 2:
                     mount: swap
                     size: 2048
                     filesystem: swap
-                    label: cmon swap
-
+                    label: couch swap
 data:
-    hostname: cmon
+    hostname: couch
