@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -e
+
+# James Dingwall
+# DMUK
+
+# Install and configure jboss + ejbca
+
+function trapdoor() {
+   /bin/bash
+
+   if [ -n "${jboss_pid}" ] ; then
+       kill "${jboss_pid}" $(pgrep -P "${jboss_pid}")
+   fi
+
+   wait
+
+#   exit 1
+}
+
+trap trapdoor ERR
+
+JBOSS_URL="http://download.jboss.org/jbossas/7.1/jboss-as-7.1.1.Final/jboss-as-7.1.1.Final.zip"
+EJBCA_URL="http://sourceforge.net/projects/ejbca/files/ejbca6/ejbca_6_2_0/ejbca_ce_6_2_0.zip"
+
+JBOSS_FILE="$(pwd)/$(basename "${JBOSS_URL}")"
+EJBCA_FILE="$(pwd)/$(basename "${EJBCA_URL}")"
+
+if ! [ -f "$(basename "${JBOSS_URL}")" ] ; then
+    wget "${JBOSS_URL}"
+fi
+
+if ! [ -f "$(basename "${EJBCA_URL}")" ] ; then
+    wget "${EJBCA_URL}"
+fi
+
+sha256sum -c sha256
+
+chmod 700 ~ejbca
+
+pushd ~ejbca
+# extract source
+unzip ${JBOSS_FILE}
+unzip ${EJBCA_FILE}
+
+# setup ejbca to locate jboss
+echo "appserver.home=/usr/local/ejbca/jboss-as-7.1.1.Final" >> ejbca_ce_6_2_0/conf/ejbca.properties
+
+# start jboss
+jboss-as-7.1.1.Final/bin/standalone.sh & jboss_pid="${!}"
+
+# deploy ejbca
+pushd ejbca_ce_6_2_0
+ant deploy
+sleep 60
+ant install
+popd # / ejbca_ce_6_2_0
+
+# terminate jboss server
+kill "${jboss_pid}" $(pgrep -P "${jboss_pid}")
+wait
+
+# jboss permissions
+pushd jboss-as-7.1.1.Final
+chown -R ejbca:ejbca standalone
+popd # / jboss-as-7.1.1.Final
+
+popd # / ~ejbca
+
+cp ejbca.conf /etc/init/
